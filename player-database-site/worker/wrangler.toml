@@ -1,0 +1,9 @@
+name = "player-database-api"
+main = "src/index.js"
+compatibility_date = "2026-09-26"
+[[d1_databases]]
+binding = "DB"
+database_name = "player-database"
+database_id = "87c7bcb9-abba-4c00-a216-60bc81ac647f"
+[vars]
+# Set ALLOWED_ORIGIN as a secret, not here.

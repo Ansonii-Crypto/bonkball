@@ -1,0 +1,28 @@
+const H=(origin,env)=>({'Content-Type':'application/json','Access-Control-Allow-Origin':env.ALLOWED_ORIGIN||origin,'Access-Control-Allow-Credentials':'true','Vary':'Origin'});
+const J=(d,s,o,e)=>new Response(JSON.stringify(d),{status:s,headers:H(o,e)});const A=['control','execution','defending','reaction_time','chemistry','game_sense'];
+const now=()=>new Date().toISOString();const uuid=()=>crypto.randomUUID();
+async function hash(s){let h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
+function cookie(n,v,age){return `${n}=${v}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${age}`}
+function getCookie(r){return r.headers.get('Cookie')?.match(/(?:^|; )admin_session=([^;]+)/)?.[1]||null}
+async function isAuth(r,e){let t=getCookie(r);if(!t)return false;return !!await e.DB.prepare('SELECT 1 FROM sessions WHERE token_hash=? AND expires_at>?').bind(await hash(t),Date.now()).first()}
+async function guard(r,e,o){if(!await isAuth(r,e))return J({error:'Administrator authentication required.'},401,o,e)}
+const total=p=>A.reduce((s,k)=>s+Number(p[k]||0),0);
+function valid(p){if(!p.name?.trim())return'Player name is required.';if(!/^[SABCDEF]$/.test(p.overall_tier||''))return'Invalid overall tier.';for(let k of A){let n=Number(p[k]);if(!Number.isInteger(n)||n<0||n>300)return`${k} must be 0–300.`}if(!p.assessed_at)return'Assessment date is required.'}
+async function snap(e,p){await e.DB.prepare('INSERT INTO assessments(player_id,assessed_at,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,total) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(p.id,p.assessed_at,p.overall_tier,...A.map(k=>Number(p[k])),total(p)).run()}
+async function main(r,e){let u=new URL(r.url),o=r.headers.get('Origin')||'',p=u.pathname,m=r.method;
+if(m==='OPTIONS')return new Response(null,{status:204,headers:{...H(o,e),'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
+if(p==='/api/session')return J({authenticated:await isAuth(r,e)},200,o,e);
+if(p==='/api/login'&&m==='POST'){let b=await r.json().catch(()=>({}));if(!/^\d{6}$/.test(String(b.code||''))||String(b.code)!==e.ADMIN_CODE)return J({error:'Invalid code.'},401,o,e);let t=uuid()+uuid(),exp=Date.now()+28800000;await e.DB.prepare('INSERT INTO sessions VALUES(?,?)').bind(await hash(t),exp).run();return new Response('{"ok":true}',{headers:{...H(o,e),'Set-Cookie':cookie('admin_session',t,28800)}})}
+if(p==='/api/logout'&&m==='POST'){let t=getCookie(r);if(t)await e.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await hash(t)).run();return new Response('{"ok":true}',{headers:{...H(o,e),'Set-Cookie':cookie('admin_session','',0)}})}
+if(p==='/api/players'&&m==='GET'){let x=await e.DB.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE').all();return J({players:x.results},200,o,e)}
+if(p==='/api/players'&&m==='POST'){let q=await guard(r,e,o);if(q)return q;let b=await r.json(),err=valid(b);if(err)return J({error:err},400,o,e);let i=uuid(),t=now();await e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(i,b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,0,t,t).run();await snap(e,{...b,id:i});return J({ok:true,id:i},201,o,e)}
+let mt=p.match(/^\/api\/players\/([^/]+)(?:\/(lock|unlock))?$/);if(!mt)return J({error:'Not found.'},404,o,e);let id=decodeURIComponent(mt[1]),act=mt[2];
+if(m==='GET'){let pl=await e.DB.prepare('SELECT * FROM players WHERE id=?').bind(id).first();if(!pl)return J({error:'Player not found.'},404,o,e);let hs=await e.DB.prepare('SELECT * FROM assessments WHERE player_id=? ORDER BY assessed_at,id').bind(id).all();return J({player:pl,history:hs.results},200,o,e)}
+let q=await guard(r,e,o);if(q)return q;let pl=await e.DB.prepare('SELECT * FROM players WHERE id=?').bind(id).first();if(!pl)return J({error:'Player not found.'},404,o,e);
+if(act==='lock'&&m==='POST'){await e.DB.prepare('UPDATE players SET locked=1,updated_at=? WHERE id=?').bind(now(),id).run();return J({ok:true},200,o,e)}
+if(act==='unlock'&&m==='POST'){let b=await r.json().catch(()=>({}));if(String(b.code)!==e.ADMIN_CODE)return J({error:'Administrative code is incorrect.'},403,o,e);await e.DB.prepare('UPDATE players SET locked=0,updated_at=? WHERE id=?').bind(now(),id).run();return J({ok:true},200,o,e)}
+if(pl.locked)return J({error:'This player is locked. Unlock it from Personal Settings first.'},423,o,e);
+if(m==='PUT'){let b=await r.json(),err=valid(b);if(err)return J({error:err},400,o,e);await e.DB.prepare('UPDATE players SET name=?,class_name=?,overall_tier=?,control=?,execution=?,defending=?,reaction_time=?,chemistry=?,game_sense=?,playstyle=?,strengths=?,weaknesses=?,assessed_at=?,updated_at=? WHERE id=?').bind(b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,now(),id).run();await snap(e,{...b,id});return J({ok:true},200,o,e)}
+if(m==='DELETE'){await e.DB.prepare('DELETE FROM assessments WHERE player_id=?').bind(id).run();await e.DB.prepare('DELETE FROM players WHERE id=?').bind(id).run();return J({ok:true},200,o,e)}
+return J({error:'Not found.'},404,o,e)}
+export default{async fetch(r,e){try{await e.DB.prepare('DELETE FROM sessions WHERE expires_at<=?').bind(Date.now()).run();return main(r,e)}catch(x){return J({error:'Server error.'},500,r.headers.get('Origin')||'',e)}}};
