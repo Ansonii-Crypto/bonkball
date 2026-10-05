@@ -107,3 +107,18 @@ Frontend: push changes to GitHub.
 Worker: from `worker/`, run `npx wrangler deploy`.
 
 Make periodic D1 backups once the database becomes important.
+
+## Accounts and logs upgrade
+
+The admin code opens an account picker, initially containing **Zimble**. Only this protected primary account can add/delete administrators in **Manage Accounts**. Accounts share the entry code; selection identifies the acting user without separate passwords.
+
+**Logs** records player creation, updates, deletion, locking/unlocking, and admin creation/deletion. Player names are bold, with assessment dates and assessment references. Logs preserve names after deletion. Previous activity is not backfilled. Locks still apply to the current player record, and logs identify its assessment at the time.
+
+For an existing database, run from `worker/` before deploying:
+
+```bash
+npx wrangler d1 execute player-database --remote --file=./migrations/0001_admin_accounts.sql
+npx wrangler deploy
+```
+
+New databases use `schema.sql`. The migration preserves player data; existing sessions require signing in again. Publish the updated frontend files too.
