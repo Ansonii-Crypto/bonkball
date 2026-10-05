@@ -35,25 +35,17 @@ async function manageAccounts(){let c=document.querySelector('#adminContent');tr
 function logRow(l){let verbs={created_player:'created player',updated_player:'updated player',deleted_player:'deleted player',locked_player:'locked player',unlocked_player:'unlocked player',created_admin:'created admin account',deleted_admin:'deleted admin account'};return `<div class="listrow"><div>${esc(l.actor_name)} ${esc(verbs[l.action]||l.action)} <strong>${esc(l.player_name??l.account_name)}</strong>${l.player_name!==null?`<div class="meta">Assessment: ${date(l.assessed_at)} ? Reference #${Number(l.assessment_id)}</div>`:''}<div class="meta">${esc(new Date(l.created_at).toLocaleString())}</div></div></div>`}
 async function logs(){let c=document.querySelector('#adminContent');c.innerHTML='<section class="card"><h2>Activity logs</h2><div id="lr"></div><button id="lm" class="secondary">Load older logs</button></section>';let before='',button=document.querySelector('#lm');async function load(){button.disabled=true;try{let {logs:l}=await api('/api/logs'+(before?'?before='+before:''));document.querySelector('#lr').insertAdjacentHTML('beforeend',l.map(logRow).join('')||(!before?'<p>No activity recorded yet.</p>':''));before=l.at(-1)?.id||before;button.hidden=l.length<100}catch(e){msg(e.message)}finally{button.disabled=false}}button.onclick=load;await load()}
 
-// Reveal navigation on upward scrolling and reclaim its space on downward scrolling.
+// Move the header pixel-for-pixel through the first header-height of scrolling.
 (function setupScrollHeader(){
  const header=document.querySelector('header');
  if(!header||!V)return;
- let last=V.scrollTop,distance=0,direction=0,layoutUntil=0;
- const measure=()=>document.documentElement.style.setProperty('--header-height',header.getBoundingClientRect().height+'px');
+ let height=0;
+ function update(){
+  const offset=Math.min(height,Math.max(0,V.scrollTop));
+  document.documentElement.style.setProperty('--header-offset',offset+'px');
+  header.inert=height>0&&offset>=height;
+ }
+ function measure(){height=header.getBoundingClientRect().height;update();}
  measure();new ResizeObserver(measure).observe(header);
- function show(hidden){if(document.body.classList.contains('header-hidden')===hidden)return;document.body.classList.toggle('header-hidden',hidden);layoutUntil=performance.now()+260;distance=0;}
- V.addEventListener('scroll',()=>{
-  const top=V.scrollTop,delta=top-last;last=top;
-  if(top<=4){show(false);return;}
-  // Resizing the scroll viewport can clamp scrollTop near the page bottom.
-  if(performance.now()<layoutUntil)return;
-  if(Math.abs(delta)<1)return;
-  const next=delta>0?1:-1;
-  if(next!==direction){direction=next;distance=0;}
-  distance+=Math.abs(delta);
-  if(distance>=10)show(next>0&&top>40);
- },{passive:true});
- // Keyboard navigation must always bring focused header controls into view.
- header.addEventListener('focusin',()=>show(false));
+ V.addEventListener('scroll',update,{passive:true});
 })();
