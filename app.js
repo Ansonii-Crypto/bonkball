@@ -37,15 +37,15 @@ async function logs(){let c=document.querySelector('#adminContent');c.innerHTML=
 
 // Move the header pixel-for-pixel through the first header-height of scrolling.
 (function setupScrollHeader(){
- const header=document.querySelector('header');
- if(!header||!V)return;
+ const header=document.querySelector('header'),scroller=document.querySelector('#scrollArea');
+ if(!header||!scroller)return;
  let height=0;
  function update(){
-  const offset=Math.min(height,Math.max(0,V.scrollTop));
+  const offset=Math.min(height,Math.max(0,scroller.scrollTop));
   document.documentElement.style.setProperty('--header-offset',offset+'px');
   header.inert=height>0&&offset>=height;
  }
  function measure(){height=header.getBoundingClientRect().height;update();}
  measure();new ResizeObserver(measure).observe(header);
- V.addEventListener('scroll',update,{passive:true});
+ scroller.addEventListener('scroll',update,{passive:true});
 })();
