@@ -1,9 +1,9 @@
-const H=(origin,env)=>({'Content-Type':'application/json','Access-Control-Allow-Origin':env.ALLOWED_ORIGIN||origin,'Access-Control-Allow-Credentials':'true','Vary':'Origin'});
+const H=(origin,env)=>({'Content-Type':'application/json','Access-Control-Allow-Origin':env.ALLOWED_ORIGIN||origin,'Access-Control-Allow-Credentials':'true','Vary':'Origin','Cache-Control':'no-store'});
 const J=(d,s,o,e)=>new Response(JSON.stringify(d),{status:s,headers:H(o,e)});const A=['control','execution','defending','reaction_time','chemistry','game_sense'];
 const now=()=>new Date().toISOString();const uuid=()=>crypto.randomUUID();
 async function hash(s){let h=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function cookie(n,v,age){return `${n}=${v}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${age}`}
-function getCookie(r){return r.headers.get('Cookie')?.match(/(?:^|; )admin_session=([^;]+)/)?.[1]||null}
+function getCookie(r){return r.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9-]+)$/)?.[1]||r.headers.get('Cookie')?.match(/(?:^|; )admin_session=([^;]+)/)?.[1]||null}
 async function session(r,e){let t=getCookie(r);if(!t)return null;return e.DB.prepare('SELECT s.token_hash,a.id,a.name,a.is_primary FROM admin_sessions s LEFT JOIN admin_accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.expires_at>?').bind(await hash(t),Date.now()).first()}
 async function isAuth(r,e){return !!(await session(r,e))?.id}
 async function guard(r,e,o){if(!await isAuth(r,e))return J({error:'Select an administrator account first.'},401,o,e)}
@@ -13,9 +13,9 @@ const total=p=>A.reduce((s,k)=>s+Number(p[k]||0),0);
 function valid(p){if(!p.name?.trim())return'Player name is required.';if(!/^[SABCDEF]$/.test(p.overall_tier||''))return'Invalid overall tier.';for(let k of A){let n=Number(p[k]);if(!Number.isInteger(n)||n<0||n>300)return`${k} must be 0–300.`}if(!p.assessed_at)return'Assessment date is required.'}
 function snap(e,p){return e.DB.prepare('INSERT INTO assessments(player_id,assessed_at,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,total) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(p.id,p.assessed_at,p.overall_tier,...A.map(k=>Number(p[k])),total(p))}
 async function main(r,e){let u=new URL(r.url),o=r.headers.get('Origin')||'',p=u.pathname,m=r.method;
-if(m==='OPTIONS')return new Response(null,{status:204,headers:{...H(o,e),'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type'}});
+if(m==='OPTIONS')return new Response(null,{status:204,headers:{...H(o,e),'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization'}});
 if(p==='/api/session'){let s=await session(r,e);return J({authenticated:!!s?.id,code_verified:!!s,account:s?.id?{id:s.id,name:s.name,is_primary:!!s.is_primary}:null},200,o,e);}
-if(p==='/api/login'&&m==='POST'){let b=await r.json().catch(()=>({}));if(!/^\d{6}$/.test(String(b.code||''))||String(b.code)!==e.ADMIN_CODE)return J({error:'Invalid code.'},401,o,e);let t=uuid()+uuid(),exp=Date.now()+28800000;await e.DB.prepare('INSERT INTO admin_sessions(token_hash,expires_at) VALUES(?,?)').bind(await hash(t),exp).run();return new Response('{"ok":true}',{headers:{...H(o,e),'Set-Cookie':cookie('admin_session',t,28800)}})}
+if(p==='/api/login'&&m==='POST'){let b=await r.json().catch(()=>({}));if(!/^\d{6}$/.test(String(b.code||''))||String(b.code)!==e.ADMIN_CODE)return J({error:'Invalid code.'},401,o,e);let t=uuid()+uuid(),exp=Date.now()+28800000;await e.DB.prepare('INSERT INTO admin_sessions(token_hash,expires_at) VALUES(?,?)').bind(await hash(t),exp).run();return new Response(JSON.stringify({ok:true,session_token:t}),{headers:{...H(o,e),'Set-Cookie':cookie('admin_session',t,28800)}})}
 if(p==='/api/logout'&&m==='POST'){let t=getCookie(r);if(t)await e.DB.prepare('DELETE FROM admin_sessions WHERE token_hash=?').bind(await hash(t)).run();return new Response('{"ok":true}',{headers:{...H(o,e),'Set-Cookie':cookie('admin_session','',0)}})}
 if(p==='/api/accounts'){
 let s=await session(r,e);if(!s)return J({error:'Enter the admin code first.'},401,o,e);
@@ -37,4 +37,4 @@ if(pl.locked)return J({error:'This player is locked. Unlock it from Personal Set
 if(m==='PUT'){let b=await r.json(),err=valid(b);if(err)return J({error:err},400,o,e);await e.DB.batch([e.DB.prepare('UPDATE players SET name=?,class_name=?,overall_tier=?,control=?,execution=?,defending=?,reaction_time=?,chemistry=?,game_sense=?,playstyle=?,strengths=?,weaknesses=?,assessed_at=?,updated_at=? WHERE id=?').bind(b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,now(),id),snap(e,{...b,id}),audit(e,await session(r,e),'updated_player',{...b,id,name:b.name.trim()})]);return J({ok:true},200,o,e)}
 if(m==='DELETE'){await e.DB.batch([await playerAudit(r,e,'deleted_player',pl),e.DB.prepare('DELETE FROM assessments WHERE player_id=?').bind(id),e.DB.prepare('DELETE FROM players WHERE id=?').bind(id)]);return J({ok:true},200,o,e)}
 return J({error:'Not found.'},404,o,e)}
-export default{async fetch(r,e){try{await e.DB.prepare('DELETE FROM admin_sessions WHERE expires_at<=?').bind(Date.now()).run();return main(r,e)}catch(x){return J({error:'Server error.'},500,r.headers.get('Origin')||'',e)}}};
+export default{async fetch(r,e){try{await e.DB.prepare('DELETE FROM admin_sessions WHERE expires_at<=?').bind(Date.now()).run();return await main(r,e)}catch(x){return J({error:'Server error.'},500,r.headers.get('Origin')||'',e)}}};
