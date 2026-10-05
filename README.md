@@ -110,7 +110,7 @@ Make periodic D1 backups once the database becomes important.
 
 ## Accounts and logs upgrade
 
-The admin code opens an account picker, initially containing **Zimble**. Only this protected primary account can add/delete administrators in **Manage Accounts**. Accounts share the entry code; selection identifies the acting user without separate passwords.
+The account picker initially contains **Zimble**. Select an account and enter the admin code to sign in. Switching accounts during an authenticated session does not require the code again. After signing out or session expiry, a new sign-in requires the code. Only this protected primary account can add/delete administrators in **Manage Accounts**. Accounts share the entry code; selection identifies the acting user without separate passwords.
 
 **Logs** records player creation, updates, deletion, locking/unlocking, and admin creation/deletion. Player names are bold, with assessment dates and assessment references. Logs preserve names after deletion. Previous activity is not backfilled. Locks still apply to the current player record, and logs identify its assessment at the time.
 
