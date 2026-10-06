@@ -15,3 +15,15 @@ main{overflow-anchor:none}
 #scrollArea{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow-y:auto;scrollbar-gutter:stable both-edges;overflow-anchor:none}
 
 .login-actions{display:flex;flex-direction:column;gap:14px}
+
+/* Give account details and invitations room without shrinking button labels. */
+#managedAccounts .listrow{display:block;padding:22px 0}
+#managedAccounts .listrow>.actions{margin-top:18px;gap:12px}
+#managedAccounts .toolbar{align-items:center;gap:12px}
+#managedAccounts .toolbar input{flex:1 1 0;min-width:0}
+#managedAccounts button{flex-shrink:0;white-space:nowrap}
+#managedAccounts .invitation-details{margin-top:16px;padding:16px;background:var(--p2);border:2px solid #c8c3b2;border-radius:6px}
+#managedAccounts .invitation-details p{margin:0 0 12px}
+#managedAccounts .invitation-details .toolbar{margin:0 0 12px;flex-wrap:nowrap}
+#managedAccounts .invitation-details input{font-family:Consolas,monospace;font-size:14px}
+@media(max-width:540px){#managedAccounts #af{align-items:stretch}#managedAccounts #af input{flex-basis:100%}#managedAccounts .invitation-details{padding:12px}#managedAccounts .listrow>.actions{flex-direction:column;align-items:stretch}#managedAccounts .invitation-details .toolbar{gap:8px}}
