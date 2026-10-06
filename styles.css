@@ -70,3 +70,9 @@ main{overflow-anchor:none}
 .log-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:22px;margin-top:12px;border-top:2px solid #d5cebc}
 .log-pagination button:disabled{cursor:default;transform:none;filter:none}
 @media(max-width:540px){.log-filters{grid-template-columns:1fr}.log-pagination{gap:8px}.log-pagination .meta{text-align:center}}
+
+/* Long account/player names and descriptions must not widen narrow screens. */
+.player-head>div,.listrow>div,.two>*{min-width:0}
+.hero h1,.account-statistics h2,#managedAccounts strong{overflow-wrap:anywhere}
+.card p{overflow-wrap:anywhere;white-space:pre-line}
+@media(max-width:400px){.admin-session-actions button{font-size:11px;padding:9px 6px}.admin-navigation{gap:6px}.account-options-panel{min-width:180px}}
