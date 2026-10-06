@@ -27,3 +27,5 @@ main{overflow-anchor:none}
 #managedAccounts .invitation-details .toolbar{margin:0 0 12px;flex-wrap:nowrap}
 #managedAccounts .invitation-details input{font-family:Consolas,monospace;font-size:14px}
 @media(max-width:540px){#managedAccounts #af{align-items:stretch}#managedAccounts #af input{flex-basis:100%}#managedAccounts .invitation-details{padding:12px}#managedAccounts .listrow>.actions{flex-direction:column;align-items:stretch}#managedAccounts .invitation-details .toolbar{gap:8px}}
+
+.invitation-expiry{margin-top:14px}
