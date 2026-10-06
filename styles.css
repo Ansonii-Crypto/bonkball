@@ -58,3 +58,9 @@ main{overflow-anchor:none}
 .admin-session-actions{display:flex;flex:0 0 auto;gap:10px;align-items:center;padding-bottom:12px}
 .admin-session-actions button{white-space:nowrap}
 @media(max-width:540px){.admin-navigation{gap:8px}.admin-navigation .tabs{padding-left:0}.admin-session-actions{gap:6px}.admin-session-actions button{padding:9px 8px;font-size:12px}}
+
+.account-options-panel{min-width:200px;display:grid;gap:10px}
+.account-statistics{width:min(680px,calc(100% - 32px));max-height:85dvh;overflow:auto;padding:24px;background:var(--p);color:var(--text);border:3px solid var(--line);border-radius:8px;box-shadow:0 6px 0 var(--line)}
+.account-statistics::backdrop{background:#202c32a0}
+.account-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:540px){.account-statistics{padding:18px}.account-stat-grid{grid-template-columns:1fr}}
