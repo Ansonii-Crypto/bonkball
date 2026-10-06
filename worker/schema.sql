@@ -13,3 +13,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_players_unique_name ON players(trim(name) 
 
 CREATE TABLE IF NOT EXISTS admin_credentials(account_id TEXT PRIMARY KEY REFERENCES admin_accounts(id) ON DELETE CASCADE,salt TEXT,code_hash TEXT,invitation_hash TEXT);
 CREATE TABLE IF NOT EXISTS admin_login_attempts(account_id TEXT PRIMARY KEY,window INTEGER NOT NULL,attempts INTEGER NOT NULL);
+
+CREATE TABLE IF NOT EXISTS admin_invitations(account_id TEXT PRIMARY KEY REFERENCES admin_accounts(id) ON DELETE CASCADE,token TEXT NOT NULL,expires_at INTEGER NOT NULL);

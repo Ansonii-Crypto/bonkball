@@ -152,3 +152,9 @@ Publish the updated frontend too. This supersedes earlier shared-code and code-f
 ### Forgotten personal codes
 
 Sign in as Zimble and open Manage Accounts. Choose Reset sign-in code beside another administrator, confirm, and privately share the new one-time setup invitation. The reset removes the old code, revokes all sessions for that account, clears its login-attempt counter, and records the action in Logs. The owner chooses and confirms a new code using the invitation. The primary account cannot be reset through this feature. No database migration is needed.
+
+## Expiring setup invitations
+
+Apply `worker/migrations/0004_expiring_admin_invitations.sql` before deploying. Invitations persist in the database and are visible only to the signed-in primary admin in Manage Accounts, with account names, copy buttons, and ten-minute expiry times. Regeneration replaces the previous invitation. Successful personal-code setup consumes the invitation; failed attempts do not. Earlier invitations are invalidated by this upgrade.
+
+Accounts with a personal code accept only that code. Unconfigured accounts require their active invitation, or the default ADMIN_CODE if no invitation is active. Anyone who knows the default code can set up an unconfigured account when no invitation is active. Invitations are stored as recoverable tokens to allow the primary admin to view/copy them later; personal codes remain salted hashes. Logs never include either secret.
