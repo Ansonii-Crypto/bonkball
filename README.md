@@ -122,3 +122,29 @@ npx wrangler deploy
 ```
 
 New databases use `schema.sql`. The migration preserves player data; existing sessions require signing in again. Publish the updated frontend files too.
+
+## Unique player names upgrade
+
+Player names must be unique, ignoring ASCII letter casing and surrounding spaces. Adding a new assessment means editing the existing player. Apply this migration before deploying the Worker:
+
+```bash
+npx wrangler d1 execute player-database --remote --file=./migrations/0002_unique_player_names.sql
+npx wrangler deploy
+```
+
+If the migration reports a unique constraint error, existing duplicate players must first be renamed or removed through the admin interface. The migration does not delete or merge any records. To find duplicates:
+
+```bash
+npx wrangler d1 execute player-database --remote --command="SELECT trim(name) AS name, COUNT(*) AS count FROM players GROUP BY trim(name) COLLATE NOCASE HAVING COUNT(*) > 1"
+```
+
+## Personal admin codes
+
+Apply `migrations/0003_personal_admin_codes.sql` before deploying the Worker. This signs out all existing sessions. Zimble uses the existing ADMIN_CODE once to create a personal six-digit code. In Manage Accounts, new accounts receive a one-time setup invitation to share privately with their owner. For existing accounts without a code, choose Create setup invitation. Owners enter that invitation and then create/confirm their own code. Invitations are consumed by setup; existing codes cannot be overwritten through invitations. Account switching and player unlocking now require the target/current account personal code. Codes use salted PBKDF2 hashes and are never returned by the API.
+
+```bash
+npx wrangler d1 execute player-database --remote --file=./migrations/0003_personal_admin_codes.sql
+npx wrangler deploy
+```
+
+Publish the updated frontend too. This supersedes earlier shared-code and code-free switching instructions.
