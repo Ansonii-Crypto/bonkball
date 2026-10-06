@@ -13,3 +13,5 @@ main{overflow-anchor:none}
 
 /* Footer follows content inside the same scroll area, filling short pages. */
 #scrollArea{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow-y:auto;scrollbar-gutter:stable both-edges;overflow-anchor:none}
+
+.login-actions{display:flex;flex-direction:column;gap:14px}
