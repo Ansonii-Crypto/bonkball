@@ -12,7 +12,7 @@ header{position:relative;top:auto;transform:translateY(0);margin-top:calc(-1 * v
 main{overflow-anchor:none}
 
 /* Footer follows content inside the same scroll area, filling short pages. */
-#scrollArea{flex:1 1 0;min-height:0;display:grid;grid-template-rows:minmax(min-content,1fr) auto;overflow-y:auto;scrollbar-gutter:auto;overflow-anchor:none}
+#scrollArea{flex:1 1 0;min-height:0;display:grid;grid-template-rows:minmax(min-content,1fr) auto;overflow-y:auto;scrollbar-gutter:stable;overflow-anchor:none}
 
 .login-actions{display:flex;flex-direction:column;gap:14px}
 
@@ -77,8 +77,8 @@ main{overflow-anchor:none}
 .card p{overflow-wrap:anywhere;white-space:pre-line}
 @media(max-width:400px){.admin-session-actions button{font-size:11px;padding:9px 6px}.admin-navigation{gap:6px}.account-options-panel{min-width:180px}}
 
-/* Avoid empty side gutters around the full-width footer. */
-#scrollArea{scrollbar-gutter:auto;overflow-x:hidden}
+/* Reserve one scrollbar gutter so tab content never shifts horizontally. */
+#scrollArea{scrollbar-gutter:stable;overflow-x:hidden}
 
 /* Let content fill available space without flex sizing creating extra overflow. */
 #scrollArea>main{min-width:0;min-height:0}
