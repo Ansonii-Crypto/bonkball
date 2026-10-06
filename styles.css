@@ -76,3 +76,6 @@ main{overflow-anchor:none}
 .hero h1,.account-statistics h2,#managedAccounts strong{overflow-wrap:anywhere}
 .card p{overflow-wrap:anywhere;white-space:pre-line}
 @media(max-width:400px){.admin-session-actions button{font-size:11px;padding:9px 6px}.admin-navigation{gap:6px}.account-options-panel{min-width:180px}}
+
+/* Avoid empty side gutters around the full-width footer. */
+#scrollArea{scrollbar-gutter:auto;overflow-x:hidden}
