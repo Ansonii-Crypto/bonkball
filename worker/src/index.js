@@ -67,7 +67,23 @@ let affected=await e.DB.prepare(`SELECT COUNT(*) AS actions_received,SUM(CASE WH
 return J({account,statistics:{...performed,...affected}},200,o,e)}
 let accountMatch=p.match(/^\/api\/accounts\/([^/]+)$/);
 if(accountMatch&&m==='DELETE'){let s=await session(r,e);if(!s?.is_primary)return J({error:'Only the primary administrator can manage accounts.'},403,o,e);let id=decodeURIComponent(accountMatch[1]),a=await e.DB.prepare('SELECT * FROM admin_accounts WHERE id=?').bind(id).first();if(!a)return J({error:'Account not found.'},404,o,e);if(a.is_primary)return J({error:'The primary account cannot be deleted.'},403,o,e);await e.DB.batch([e.DB.prepare('DELETE FROM admin_sessions WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_invitations WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_credentials WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_account_metadata WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_accounts WHERE id=?').bind(id),audit(e,s,'deleted_admin',null,null,a.name)]);return J({ok:true},200,o,e)}
-if(p==='/api/logs'&&m==='GET'){let q=await guard(r,e,o);if(q)return q;let before=Number(u.searchParams.get('before'))||Number.MAX_SAFE_INTEGER;let logs=await e.DB.prepare('SELECT * FROM activity_logs WHERE id<? ORDER BY id DESC LIMIT 100').bind(before).all();return J({logs:logs.results},200,o,e)}
+if(p==='/api/logs'&&m==='GET'){
+let q=await guard(r,e,o);if(q)return q;
+let size=Number(u.searchParams.get('limit')||25),page=Number(u.searchParams.get('page')||1);if(!Number.isInteger(size)||size<1||size>100||!Number.isInteger(page)||page<1)return J({error:'Invalid page or page size.'},400,o,e);
+let clauses=[],args=[],action=u.searchParams.get('action'),actor=u.searchParams.get('administrator'),from=u.searchParams.get('from'),to=u.searchParams.get('to');
+if(action){clauses.push('action=?');args.push(action)}if(actor){clauses.push('actor_id=?');args.push(actor)}
+for(let value of [from,to])if(value&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||Number.isNaN(Date.parse(value))||new Date(value).toISOString().slice(0,10)!==value))return J({error:'Invalid date filter.'},400,o,e);
+if(from&&to&&from>to)return J({error:'Start date must be before or equal to end date.'},400,o,e);
+// Date bounds are UTC instants supplied by the browser for the selected local dates.
+let start=u.searchParams.get('start'),end=u.searchParams.get('end');
+for(let value of [start,end])if(value&&Number.isNaN(Date.parse(value)))return J({error:'Invalid date boundary.'},400,o,e);
+if(start){clauses.push('created_at>=?');args.push(new Date(start).toISOString())}else if(from){clauses.push('created_at>=?');args.push(from+'T00:00:00.000Z')}
+if(end){clauses.push('created_at<?');args.push(new Date(end).toISOString())}else if(to){let next=new Date(to);next.setUTCDate(next.getUTCDate()+1);clauses.push('created_at<?');args.push(next.toISOString())}
+let where=clauses.length?' WHERE '+clauses.join(' AND '):'';
+let count=await e.DB.prepare('SELECT COUNT(*) AS total FROM activity_logs'+where).bind(...args).first(),total=count.total,pages=Math.max(1,Math.ceil(total/size));page=Math.min(page,pages);
+let rows=await e.DB.prepare('SELECT * FROM activity_logs'+where+' ORDER BY id DESC LIMIT ? OFFSET ?').bind(...args,size,(page-1)*size).all();
+let actors=await e.DB.prepare('SELECT actor_id AS id,MAX(actor_name) AS name FROM activity_logs GROUP BY actor_id ORDER BY name COLLATE NOCASE').all(),actions=await e.DB.prepare('SELECT DISTINCT action FROM activity_logs ORDER BY action').all();
+return J({logs:rows.results,total,page,page_size:size,total_pages:pages,administrators:actors.results,actions:actions.results.map(x=>x.action)},200,o,e)}
 if(p==='/api/players'&&m==='GET'){let x=await e.DB.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE').all();return J({players:x.results},200,o,e)}
 if(p==='/api/players'&&m==='POST'){let q=await guard(r,e,o);if(q)return q;let b=await r.json(),err=valid(b);if(err)return J({error:err},400,o,e);if(await duplicatePlayer(e,b.name.trim()))return J({error:duplicateNameError},409,o,e);let i=uuid(),t=now();await e.DB.batch([e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(i,b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,0,t,t),snap(e,{...b,id:i}),audit(e,await session(r,e),'created_player',{...b,id:i,name:b.name.trim()})]);return J({ok:true,id:i},201,o,e)}
 let mt=p.match(/^\/api\/players\/([^/]+)(?:\/(lock|unlock))?$/);if(!mt)return J({error:'Not found.'},404,o,e);let id=decodeURIComponent(mt[1]),act=mt[2];

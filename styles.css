@@ -64,3 +64,9 @@ main{overflow-anchor:none}
 .account-statistics::backdrop{background:#202c32a0}
 .account-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 @media(max-width:540px){.account-statistics{padding:18px}.account-stat-grid{grid-template-columns:1fr}}
+
+.log-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding-bottom:20px;border-bottom:2px dashed #d5cebc}
+.log-filter-actions{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding-bottom:4px}
+.log-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:22px;margin-top:12px;border-top:2px solid #d5cebc}
+.log-pagination button:disabled{cursor:default;transform:none;filter:none}
+@media(max-width:540px){.log-filters{grid-template-columns:1fr}.log-pagination{gap:8px}.log-pagination .meta{text-align:center}}
