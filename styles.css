@@ -12,7 +12,7 @@ header{position:relative;top:auto;transform:translateY(0);margin-top:calc(-1 * v
 main{overflow-anchor:none}
 
 /* Footer follows content inside the same scroll area, filling short pages. */
-#scrollArea{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow-y:auto;scrollbar-gutter:stable both-edges;overflow-anchor:none}
+#scrollArea{flex:1 1 0;min-height:0;display:grid;grid-template-rows:minmax(min-content,1fr) auto;overflow-y:auto;scrollbar-gutter:auto;overflow-anchor:none}
 
 .login-actions{display:flex;flex-direction:column;gap:14px}
 
@@ -79,3 +79,7 @@ main{overflow-anchor:none}
 
 /* Avoid empty side gutters around the full-width footer. */
 #scrollArea{scrollbar-gutter:auto;overflow-x:hidden}
+
+/* Let content fill available space without flex sizing creating extra overflow. */
+#scrollArea>main{min-width:0;min-height:0}
+#scrollArea>footer{min-width:0}
