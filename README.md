@@ -148,3 +148,7 @@ npx wrangler deploy
 ```
 
 Publish the updated frontend too. This supersedes earlier shared-code and code-free switching instructions.
+
+### Forgotten personal codes
+
+Sign in as Zimble and open Manage Accounts. Choose Reset sign-in code beside another administrator, confirm, and privately share the new one-time setup invitation. The reset removes the old code, revokes all sessions for that account, clears its login-attempt counter, and records the action in Logs. The owner chooses and confirms a new code using the invitation. The primary account cannot be reset through this feature. No database migration is needed.

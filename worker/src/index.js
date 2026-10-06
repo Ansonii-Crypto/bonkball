@@ -43,6 +43,16 @@ if(m==='POST'){if(!s?.is_primary)return J({error:'Only the primary administrator
 }
 if(p==='/api/accounts/select'&&m==='POST')return J({error:'Sign in with the target account personal code.'},403,o,e);
 if(p==='/api/accounts/invite'&&m==='POST'){let s=await session(r,e);if(!s?.is_primary)return J({error:'Only the primary administrator can issue invitations.'},403,o,e);let b=await r.json(),account=await e.DB.prepare('SELECT id FROM admin_accounts WHERE id=?').bind(b.account_id).first();if(!account)return J({error:'Account not found.'},404,o,e);if((await credential(e,account.id))?.code_hash)return J({error:'Account already has a personal code.'},409,o,e);let invitation=uuid();let result=await e.DB.prepare('INSERT INTO admin_credentials(account_id,invitation_hash) VALUES(?,?) ON CONFLICT(account_id) DO UPDATE SET invitation_hash=excluded.invitation_hash WHERE admin_credentials.code_hash IS NULL').bind(account.id,await hash(invitation)).run();if(!result.meta?.changes)return J({error:'Account already set up.'},409,o,e);return J({invitation},200,o,e)}
+if(p==='/api/accounts/reset-code'&&m==='POST'){
+let user=await session(r,e);if(!user?.is_primary)return J({error:'Only the primary administrator can reset account codes.'},403,o,e);
+let b=await r.json().catch(()=>({})),account=await e.DB.prepare('SELECT id,name,is_primary FROM admin_accounts WHERE id=?').bind(String(b.account_id||'')).first();
+if(!account)return J({error:'Account not found.'},404,o,e);if(account.is_primary)return J({error:'The primary account cannot be reset here.'},403,o,e);
+let invitation=uuid();await e.DB.batch([
+e.DB.prepare('INSERT INTO admin_credentials(account_id,invitation_hash) VALUES(?,?) ON CONFLICT(account_id) DO UPDATE SET salt=NULL,code_hash=NULL,invitation_hash=excluded.invitation_hash').bind(account.id,await hash(invitation)),
+e.DB.prepare('DELETE FROM admin_sessions WHERE account_id=?').bind(account.id),
+e.DB.prepare('DELETE FROM admin_login_attempts WHERE account_id=?').bind(account.id),
+audit(e,user,'reset_admin_code',null,null,account.name)
+]);return J({ok:true,invitation},200,o,e)}
 let accountMatch=p.match(/^\/api\/accounts\/([^/]+)$/);
 if(accountMatch&&m==='DELETE'){let s=await session(r,e);if(!s?.is_primary)return J({error:'Only the primary administrator can manage accounts.'},403,o,e);let id=decodeURIComponent(accountMatch[1]),a=await e.DB.prepare('SELECT * FROM admin_accounts WHERE id=?').bind(id).first();if(!a)return J({error:'Account not found.'},404,o,e);if(a.is_primary)return J({error:'The primary account cannot be deleted.'},403,o,e);await e.DB.batch([e.DB.prepare('DELETE FROM admin_sessions WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_credentials WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_accounts WHERE id=?').bind(id),audit(e,s,'deleted_admin',null,null,a.name)]);return J({ok:true},200,o,e)}
 if(p==='/api/logs'&&m==='GET'){let q=await guard(r,e,o);if(q)return q;let before=Number(u.searchParams.get('before'))||Number.MAX_SAFE_INTEGER;let logs=await e.DB.prepare('SELECT * FROM activity_logs WHERE id<? ORDER BY id DESC LIMIT 100').bind(before).all();return J({logs:logs.results},200,o,e)}
