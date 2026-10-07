@@ -83,3 +83,17 @@ main{overflow-anchor:none}
 /* Let content fill available space without flex sizing creating extra overflow. */
 #scrollArea>main{min-width:0;min-height:0}
 #scrollArea>footer{min-width:0}
+
+/* Custom confirmations appear near the top, with keyboard focus contained. */
+.app-dialog{position:fixed;inset:clamp(20px,8vh,80px) auto auto 50%;transform:translateX(-50%);margin:0;width:min(520px,calc(100% - 32px));max-height:80dvh;overflow:auto;padding:22px;background:var(--p);color:var(--text);border:3px solid var(--line);border-radius:8px;box-shadow:0 6px 0 var(--line)}
+.app-dialog::backdrop{background:#202c3270}
+.app-dialog-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.app-dialog-heading h2{margin:0;font-size:22px}
+.app-dialog .dialog-dismiss{padding:4px 10px;font-size:24px;box-shadow:none}
+.app-dialog p{white-space:pre-line;overflow-wrap:anywhere}
+.app-dialog-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding-top:8px}
+.tooltip-trigger{position:relative;display:inline-flex;align-items:center;outline-offset:5px}
+.disabled-edit button{pointer-events:none;cursor:not-allowed}
+.custom-tooltip{position:absolute;z-index:8;left:0;bottom:calc(100% + 12px);width:240px;max-width:70vw;padding:11px 13px;border:2px solid var(--line);border-radius:6px;background:var(--p);color:var(--text);box-shadow:0 4px 0 #42433f40;font-size:12px;line-height:1.5;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s}
+.tooltip-trigger:hover .custom-tooltip,.tooltip-trigger:focus .custom-tooltip{visibility:visible;opacity:1}
+.tooltip-trigger:focus-visible{outline:3px solid #285b88}
