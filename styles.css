@@ -113,3 +113,16 @@ main{overflow-anchor:none}
 .assessment-navigation button{padding:9px 10px}
 .assessment-notes{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:540px){.assessment-viewer{height:570px;min-height:400px;gap:12px}.assessment-navigation button{font-size:12px}}
+
+/* The selector drives the existing main panel; neither column stretches the other. */
+.player-profile-layout{align-items:start}
+.main-assessment{align-self:start;min-width:0}
+.assessment-selector{max-height:570px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.assessment-selector h2,.assessment-selector>p{margin:0}
+#assessmentPinned{flex-shrink:0;padding-bottom:12px;border-bottom:2px dashed #d5cebc}
+.assessment-selector-older{min-height:0;overflow-y:auto;overscroll-behavior:contain;display:grid;gap:10px;scrollbar-gutter:stable}
+.assessment-entry{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;width:100%;min-height:82px;box-shadow:none;padding:10px 12px;text-align:left}
+.assessment-entry .meta,.assessment-entry strong{max-width:100%;overflow-wrap:anywhere}
+.assessment-entry.selected{background:#e0edce;border-color:#486b39;box-shadow:inset 4px 0 0 #65954b}
+.assessment-entry[aria-pressed="true"] strong:after{content:' (selected)';font-size:12px;font-weight:normal}
+.assessment-selector .assessment-navigation{flex-shrink:0}
