@@ -126,3 +126,11 @@ main{overflow-anchor:none}
 .assessment-entry.selected{background:#e0edce;border-color:#486b39;box-shadow:inset 4px 0 0 #65954b}
 .assessment-entry[aria-pressed="true"] strong:after{content:' (selected)';font-size:12px;font-weight:normal}
 .assessment-selector .assessment-navigation{flex-shrink:0}
+
+/* Selector controls must not translate outside their scrollable track when pressed. */
+.assessment-selector .assessment-entry:hover,.assessment-selector .assessment-entry:active{transform:none;box-shadow:none}
+.assessment-selector .assessment-entry.selected:hover,.assessment-selector .assessment-entry.selected:active{box-shadow:inset 4px 0 0 #65954b}
+.assessment-selector-older{padding:5px;scrollbar-gutter:stable;overflow-x:visible}
+.assessment-selector .assessment-entry:focus-visible{outline-offset:1px}
+.assessment-edit-choice{margin-bottom:20px}
+.assessment-edit-choice label{display:block;font-weight:bold;margin-bottom:8px}

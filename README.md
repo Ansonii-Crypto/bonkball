@@ -158,3 +158,7 @@ Sign in as Zimble and open Manage Accounts. Choose Reset sign-in code beside ano
 Apply `worker/migrations/0004_expiring_admin_invitations.sql` before deploying. Invitations persist in the database and are visible only to the signed-in primary admin in Manage Accounts, with account names, copy buttons, and ten-minute expiry times. Regeneration replaces the previous invitation. Successful personal-code setup consumes the invitation; failed attempts do not. Earlier invitations are invalidated by this upgrade.
 
 Accounts with a personal code accept only that code. Unconfigured accounts require their active invitation, or the default ADMIN_CODE if no invitation is active. Anyone who knows the default code can set up an unconfigured account when no invitation is active. Invitations are stored as recoverable tokens to allow the primary admin to view/copy them later; personal codes remain salted hashes. Logs never include either secret.
+
+## Assessment-specific editing
+
+Apply `worker/migrations/0007_assessment_details.sql` before deploying this Worker. Class, playstyle, strengths and weaknesses are now saved per assessment. The migration recovers these fields only for the current matching snapshot; older unavailable values are shown as unrecorded. Edit Player offers a selector to update an existing assessment or explicitly add a new one. Updates preserve other snapshots, and the public player profile follows the newest assessment by date then ID.
