@@ -144,3 +144,16 @@ main{overflow-anchor:none}
 .assessment-list-title{margin-top:24px;overflow-wrap:anywhere}
 .admin-assessment-list{margin-top:20px}
 @media(max-width:540px){.admin-player-directory{gap:12px}.admin-player-directory .listrow>.actions{width:100%}}
+
+.assessment-history-launcher button{width:100%;margin-top:8px}
+.assessment-history-launcher button[hidden]{display:none}
+.assessment-history-dialog{width:min(600px,calc(100% - 32px));max-height:80dvh;overflow:visible;box-sizing:border-box;margin:auto;padding:22px;background:var(--p);color:var(--text);border:3px solid var(--line);border-radius:8px;box-shadow:0 6px 0 var(--line)}
+.assessment-history-dialog[open]{display:flex;flex-direction:column}
+.assessment-history-dialog::backdrop{background:#202c3270}
+.assessment-history-dialog .app-dialog-heading,.assessment-history-dialog>p{flex-shrink:0}
+.assessment-history-list{min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:12px;padding:5px;scrollbar-gutter:stable}
+.assessment-history-list .assessment-entry{flex-shrink:0;width:100%}
+.assessment-history-list .assessment-entry:hover,.assessment-history-list .assessment-entry:active{transform:none;box-shadow:none}
+.assessment-history-list .assessment-entry.selected{box-shadow:inset 4px 0 0 #65954b}
+.assessment-history-list .assessment-entry:focus-visible{outline-offset:1px}
+@media(max-width:540px){.assessment-history-dialog{padding:16px}}
