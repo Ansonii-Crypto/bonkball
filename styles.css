@@ -97,3 +97,19 @@ main{overflow-anchor:none}
 .custom-tooltip{position:absolute;z-index:8;left:0;bottom:calc(100% + 12px);width:240px;max-width:70vw;padding:11px 13px;border:2px solid var(--line);border-radius:6px;background:var(--p);color:var(--text);box-shadow:0 4px 0 #42433f40;font-size:12px;line-height:1.5;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s}
 .tooltip-trigger:hover .custom-tooltip,.tooltip-trigger:focus .custom-tooltip{visibility:visible;opacity:1}
 .tooltip-trigger:focus-visible{outline:3px solid #285b88}
+
+/* History stays the same size regardless of how many snapshots exist. */
+.assessment-history{margin-top:20px}
+.assessment-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.latest-assessment-body{max-height:450px;overflow-y:auto;scrollbar-gutter:stable;padding-right:8px}
+.assessment-viewer{margin-top:20px;height:590px;max-height:80dvh;min-height:420px;display:grid;grid-template-rows:auto 74px minmax(0,1fr) 74px auto;gap:14px;min-width:0}
+.assessment-viewer h2{margin:0;font-size:21px}
+.assessment-preview{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:3px;height:74px;width:100%;min-width:0;padding:8px 12px;text-align:left;box-shadow:none}
+.assessment-preview strong,.assessment-preview .meta{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.assessment-preview:disabled{opacity:1;background:#eee8d8;cursor:default;transform:none;filter:none}
+.selected-assessment{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:4px 10px 8px 0}
+.assessment-navigation{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:4px}
+.assessment-navigation .meta{text-align:center;line-height:1.3}
+.assessment-navigation button{padding:9px 10px}
+.assessment-notes{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:540px){.assessment-viewer{height:570px;min-height:400px;gap:12px}.assessment-navigation button{font-size:12px}}
