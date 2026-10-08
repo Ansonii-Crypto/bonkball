@@ -134,3 +134,13 @@ main{overflow-anchor:none}
 .assessment-selector .assessment-entry:focus-visible{outline-offset:1px}
 .assessment-edit-choice{margin-bottom:20px}
 .assessment-edit-choice label{display:block;font-weight:bold;margin-bottom:8px}
+
+.admin-player-directory{display:grid;grid-template-columns:44px minmax(0,1fr);gap:20px;align-items:start}
+.player-alphabet{display:flex;flex-direction:column;gap:10px}
+.player-alphabet button{width:42px;height:42px;padding:0;flex-shrink:0}
+.player-alphabet button.active{background:var(--a);color:white}
+.player-name-link{background:none;color:var(--text);border:0;padding:4px 0;box-shadow:none;font-size:18px;text-align:left;overflow-wrap:anywhere}
+.player-name-link:hover,.player-name-link:active{transform:none;box-shadow:none;text-decoration:underline}
+.assessment-list-title{margin-top:24px;overflow-wrap:anywhere}
+.admin-assessment-list{margin-top:20px}
+@media(max-width:540px){.admin-player-directory{gap:12px}.admin-player-directory .listrow>.actions{width:100%}}
