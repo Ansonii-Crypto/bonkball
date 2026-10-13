@@ -137,7 +137,11 @@ main{overflow-anchor:none}
 
 .admin-player-directory{display:grid;grid-template-columns:44px minmax(0,1fr);gap:20px;align-items:start}
 .player-alphabet{display:flex;flex-direction:column;gap:10px}
-.player-alphabet button{width:42px;height:42px;padding:0;flex-shrink:0}
+.player-alphabet button{position:relative;width:42px;height:42px;padding:0;flex-shrink:0;transition:box-shadow .12s,filter .12s}
+/* Keep the click target stationary, including the raised bottom edge. */
+.player-alphabet button::after{content:'';position:absolute;inset:0 0 -4px;border-radius:inherit}
+.player-alphabet button:hover,.player-alphabet button:active{transform:none}
+.player-alphabet button:active{box-shadow:0 1px 0 var(--line),inset 0 2px 0 #00000015}
 .player-alphabet button.active{background:var(--a);color:white}
 .player-name-link{background:none;color:var(--text);border:0;padding:4px 0;box-shadow:none;font-size:18px;text-align:left;overflow-wrap:anywhere}
 .player-name-link:hover,.player-name-link:active{transform:none;box-shadow:none;text-decoration:underline}
