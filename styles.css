@@ -161,6 +161,8 @@ main{overflow-anchor:none}
 /* Account labels share a left edge with their role and setup status. */
 .login .listrow>div:first-child,#managedAccounts .listrow>div:first-child{text-align:left}
 
-.public-player-directory{display:grid;grid-template-columns:44px minmax(0,1fr);gap:20px;align-items:start}
+.public-player-directory{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
+.public-player-directory .player-alphabet{flex-direction:row;flex-wrap:wrap}
 .public-player-directory .grid{min-width:0}
-@media(max-width:540px){.public-player-directory{grid-template-columns:minmax(0,1fr);gap:18px}.public-player-directory .player-alphabet{flex-direction:row;flex-wrap:wrap}}
+/* Use the outer margin for the index so cards retain the search bar width. */
+@media(min-width:1280px){.public-player-directory{grid-template-columns:44px minmax(0,1fr);gap:20px;margin-left:-64px}.public-player-directory .player-alphabet{flex-direction:column;flex-wrap:nowrap}}
