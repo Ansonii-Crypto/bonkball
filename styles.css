@@ -166,3 +166,8 @@ main{overflow-anchor:none}
 .public-player-directory .grid{min-width:0}
 /* Use the outer margin for the index so cards retain the search bar width. */
 @media(min-width:1280px){.public-player-directory{grid-template-columns:44px minmax(0,1fr);gap:20px;margin-left:-64px}.public-player-directory .player-alphabet{flex-direction:column;flex-wrap:nowrap}}
+
+.player-sort-bar{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin:0 0 22px}
+.player-sort-bar label{font-weight:bold;flex-shrink:0}
+.player-sort-bar select{width:auto;max-width:100%}
+@media(max-width:540px){.player-sort-bar{flex-direction:column;align-items:stretch;gap:8px}.player-sort-bar select{width:100%}}

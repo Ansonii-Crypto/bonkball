@@ -17,17 +17,30 @@ function render(s){V.innerHTML=s;wireCodes();}
 let toastTimer;
 function msg(s){clearTimeout(toastTimer);T.textContent=s;T.classList.add('show');toastTimer=setTimeout(()=>T.classList.remove('show'),2300)}
 let publicPlayerLetters=new Set();
+let publicPlayerSort='name';
+function sortPublicPlayers(players,order){
+ const points=player=>A.reduce((sum,[key])=>sum+Number(player[key]||0),0);
+ const nameGroup=player=>{let first=String(player.name||'').trim().charAt(0);return /^[0-9]$/.test(first)?0:/^[a-z]$/i.test(first)?1:2};
+ const byName=(a,b)=>nameGroup(a)-nameGroup(b)||String(a.name).localeCompare(String(b.name),'en',{sensitivity:'base',numeric:true})||String(a.id||'').localeCompare(String(b.id||''));
+ const byDate=(a,b)=>{let left=a.assessed_at||'',right=b.assessed_at||'';return left&&right?left.localeCompare(right):left?-1:right?1:0};
+ return players.slice().sort((a,b)=>{
+  if(order==='points-desc'||order==='points-asc')return (order==='points-desc'?points(b)-points(a):points(a)-points(b))||byDate(a,b)||byName(a,b);
+  if(order==='newest'||order==='oldest'){let dated=!!a.assessed_at-!!b.assessed_at;if(dated)return -dated;return (order==='newest'?-byDate(a,b):byDate(a,b))||byName(a,b)}
+  return byName(a,b);
+ });
+}
 async function home(){try{
  let {players}=await api('/api/players'),letters=[...new Set(players.map(p=>playerInitial(p.name)))].sort();
  publicPlayerLetters=new Set([...publicPlayerLetters].filter(letter=>letters.includes(letter)));
- render(`<div class="hero"><div class="eyebrow">PLAYER DATABASE</div><h1>Players</h1><p>Current ratings, classes and development records.</p></div><div class="toolbar"><input id="q" aria-label="Search players or classes" placeholder="Search players or classes?"></div><p class="meta">Toggle letters to filter player names. Select multiple letters or All to show every initial.</p><div class="public-player-directory"><nav class="player-alphabet" aria-label="Filter players by initial"><button class="secondary" id="allPlayerLetters" aria-pressed="${!publicPlayerLetters.size}">All</button>${letters.map(letter=>`<button class="secondary" data-public-player-letter="${letter}" aria-pressed="${publicPlayerLetters.has(letter)}">${letter}</button>`).join('')}</nav><div id="cards" class="grid" aria-live="polite"></div></div>`);
+ render(`<div class="hero"><div class="eyebrow">PLAYER DATABASE</div><h1>Players</h1><p>Current ratings, classes and development records.</p></div><div class="toolbar"><input id="q" aria-label="Search players or classes" placeholder="Search players or classes?"></div><p class="meta">Toggle letters to filter player names. Select multiple letters or All to show every initial.</p><div class="player-sort-bar"><label for="playerSort">Sort players</label><select id="playerSort"><option value="name">Name: 0?9, A?Z</option><option value="points-desc">Points: highest to lowest</option><option value="points-asc">Points: lowest to highest</option><option value="newest">Latest assessment: newest first</option><option value="oldest">Latest assessment: oldest first</option></select></div><div class="public-player-directory"><nav class="player-alphabet" aria-label="Filter players by initial"><button class="secondary" id="allPlayerLetters" aria-pressed="${!publicPlayerLetters.size}">All</button>${letters.map(letter=>`<button class="secondary" data-public-player-letter="${letter}" aria-pressed="${publicPlayerLetters.has(letter)}">${letter}</button>`).join('')}</nav><div id="cards" class="grid" aria-live="polite"></div></div>`);
  function draw(){
   document.querySelectorAll('[data-public-player-letter]').forEach(button=>{let active=publicPlayerLetters.has(button.dataset.publicPlayerLetter);button.setAttribute('aria-pressed',active);button.classList.toggle('active',active)});
   let all=document.querySelector('#allPlayerLetters');all.setAttribute('aria-pressed',!publicPlayerLetters.size);all.classList.toggle('active',!publicPlayerLetters.size);
-  let query=document.querySelector('#q').value.trim().toLowerCase(),visible=filteredPlayers(players,publicPlayerLetters).filter(player=>(player.name+' '+(player.class_name||'')).toLowerCase().includes(query));
+  let query=document.querySelector('#q').value.trim().toLowerCase(),visible=sortPublicPlayers(players.filter(player=>(!publicPlayerLetters.size||publicPlayerLetters.has(playerInitial(player.name)))&&(player.name+' '+(player.class_name||'')).toLowerCase().includes(query)),publicPlayerSort);
   document.querySelector('#cards').innerHTML=visible.length?visible.map(card).join(''):`<div class="empty" style="grid-column:1/-1">No players found.</div>`;
  }
  document.querySelector('#q').oninput=draw;
+ const sort=document.querySelector('#playerSort');sort.value=publicPlayerSort;sort.onchange=()=>{publicPlayerSort=sort.value;draw()};
  document.querySelector('#allPlayerLetters').onclick=()=>{publicPlayerLetters.clear();draw()};
  document.querySelectorAll('[data-public-player-letter]').forEach(button=>button.onclick=()=>{let letter=button.dataset.publicPlayerLetter;if(publicPlayerLetters.has(letter))publicPlayerLetters.delete(letter);else publicPlayerLetters.add(letter);draw()});draw();
 }catch(e){render(`<div class="empty">${esc(e.message)}</div>`)}}
