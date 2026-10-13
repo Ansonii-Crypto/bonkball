@@ -157,3 +157,10 @@ main{overflow-anchor:none}
 .assessment-history-list .assessment-entry.selected{box-shadow:inset 4px 0 0 #65954b}
 .assessment-history-list .assessment-entry:focus-visible{outline-offset:1px}
 @media(max-width:540px){.assessment-history-dialog{padding:16px}}
+
+/* Account labels share a left edge with their role and setup status. */
+.login .listrow>div:first-child,#managedAccounts .listrow>div:first-child{text-align:left}
+
+.public-player-directory{display:grid;grid-template-columns:44px minmax(0,1fr);gap:20px;align-items:start}
+.public-player-directory .grid{min-width:0}
+@media(max-width:540px){.public-player-directory{grid-template-columns:minmax(0,1fr);gap:18px}.public-player-directory .player-alphabet{flex-direction:row;flex-wrap:wrap}}
