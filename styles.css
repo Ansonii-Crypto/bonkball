@@ -167,7 +167,9 @@ main{overflow-anchor:none}
 /* Use the outer margin for the index so cards retain the search bar width. */
 @media(min-width:1280px){.public-player-directory{grid-template-columns:44px minmax(0,1fr);gap:20px;margin-left:-64px}.public-player-directory .player-alphabet{flex-direction:column;flex-wrap:nowrap}}
 
-.player-sort-bar{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin:0 0 22px}
+.player-directory-controls{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 16px}
+.player-directory-controls>.meta{margin:0;max-width:580px}
+.player-sort-bar{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin:0;flex-shrink:0}
 .player-sort-bar label{font-weight:bold;flex-shrink:0}
 .player-sort-bar select{
  appearance:none;
@@ -191,3 +193,5 @@ main{overflow-anchor:none}
 .player-sort-bar select:focus-visible{outline:3px solid #285b88;outline-offset:5px;border-color:var(--line)}
 .player-sort-bar select option{background:var(--p);color:var(--text);font-weight:normal}
 @media(max-width:540px){.player-sort-bar{flex-direction:column;align-items:stretch;gap:8px}.player-sort-bar select{width:100%;min-width:0}}
+
+@media(max-width:800px){.player-directory-controls{flex-direction:column;align-items:stretch;gap:12px}}
