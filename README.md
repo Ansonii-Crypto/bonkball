@@ -162,3 +162,10 @@ Accounts with a personal code accept only that code. Unconfigured accounts requi
 ## Assessment-specific editing
 
 Apply `worker/migrations/0007_assessment_details.sql` before deploying this Worker. Class, playstyle, strengths and weaknesses are now saved per assessment. The migration recovers these fields only for the current matching snapshot; older unavailable values are shown as unrecorded. Edit Player offers a selector to update an existing assessment or explicitly add a new one. Updates preserve other snapshots, and the public player profile follows the newest assessment by date then ID.
+
+
+## Classes page videos
+
+The public Classes page is available at `#/classes`. Definitions and example captions live in `classes.js`.
+
+To add an example, upload the clip under `videos/` and set the matching class's `video` to a relative path such as `./videos/weaver.mp4`. MP4 is the default (`videoType: 'video/mp4'`); WebM can use `videoType: 'video/webm'`. Leave `video` empty to show the coming-soon placeholder without requesting a missing file. The video uses native playback controls, including fullscreen and exiting fullscreen on supported browsers. Escape, either close button, or a click outside the details panel dismisses it; closing stops playback.

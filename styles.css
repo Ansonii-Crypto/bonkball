@@ -199,3 +199,30 @@ main{overflow-anchor:none}
 @media(max-width:540px){.player-sort-bar{flex-direction:column;align-items:stretch;gap:8px}.player-sort-bar select{width:100%;min-width:0}}
 
 @media(max-width:800px){.player-directory-controls{flex-direction:column;align-items:stretch;gap:12px}}
+
+/* Public playstyle classes and their example panels. */
+.classes-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.class-card{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.class-card h2{margin:0;font-size:28px}
+.class-card p{margin:0 0 8px}
+.class-card button{margin-top:auto}
+.class-dialog{width:min(800px,calc(100% - 32px));max-height:85vh;max-height:85dvh;padding:24px;margin:auto;border:3px solid var(--line);border-radius:8px;background:var(--p);color:var(--text);box-shadow:0 6px 0 var(--line);overflow:hidden}
+.class-dialog[open]{display:flex;flex-direction:column}
+.class-dialog::backdrop{background:#17232bc4}
+.class-dialog .app-dialog-heading,.class-dialog-footer{flex-shrink:0}
+.class-dialog-body{overflow-y:auto;min-height:0;overscroll-behavior:contain;padding:0 5px 4px 0}
+.class-summary{margin-top:6px}
+.class-approaches{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.class-approaches h3{margin-top:0}
+.class-approaches p{margin-bottom:0}
+.class-example{margin:0}
+.class-video-stage{aspect-ratio:16/9;display:grid;place-items:center;overflow:hidden;border:2px solid var(--line);border-radius:6px;background:#25332d;color:var(--p)}
+.class-video-stage video{display:block;width:100%;height:100%;object-fit:contain;background:#101812}
+.class-video-placeholder{text-align:center;padding:20px}
+.class-video-placeholder>span{display:block;font-size:36px;margin-bottom:12px;color:#b3c9a5}
+.class-video-placeholder strong{display:block}
+.class-video-placeholder p{color:#cad7c4;margin:8px 0 0;font-size:13px}
+.class-example figcaption{padding:2px 0 0}
+.class-dialog-footer{display:flex;justify-content:flex-end;padding-top:16px}
+@media(max-width:800px){.classes-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.classes-grid,.class-approaches{grid-template-columns:1fr}.class-dialog{padding:16px}.class-video-placeholder{padding:12px}.class-video-placeholder>span{font-size:24px;margin-bottom:6px}}
