@@ -20,7 +20,7 @@ function environment() {
     },
     async all() { return { results: db.prepare(sql).all() }; }
   });
-  return { db, DB: { prepare, async batch(statements) {
+  return { db, API_RATE_LIMITER:{async limit(){return {success:true}}}, LOGIN_RATE_LIMITER:{async limit(){return {success:true}}}, DB: { prepare, async batch(statements) {
     db.exec('BEGIN');
     try { const results = []; for (const statement of statements) results.push(await statement.run()); db.exec('COMMIT'); return results; }
     catch (error) { db.exec('ROLLBACK'); throw error; }
@@ -41,4 +41,32 @@ test('invitation setup immediately saves personal code and consumes invitation',
   assert.equal((await login({code:'123456'})).status,200);
   assert.equal((await login({code:'test-invite'})).status,401);
   env.db.close();
+});
+
+for (const state of ['missing','expired','wrong']) test(`setup rejects ${state} invitation and default code`,async()=>{
+  const env=environment();
+  env.db.exec("INSERT INTO admin_accounts VALUES('test','Test',0)");
+  if(state!=='missing')env.db.prepare('INSERT INTO admin_invitations VALUES(?,?,?)').run('test','valid-token',Date.now()+(state==='expired'?-1000:600000));
+  for(const code of [env.ADMIN_CODE,state==='wrong'?'wrong-token':'valid-token']){
+    const response=await worker.fetch(new Request('https://api.test/api/login',{method:'POST',body:JSON.stringify({account_id:'test',code,new_code:'123456',confirm_code:'123456'})}),env);
+    assert.equal(response.status,401);
+  }
+  assert.equal(env.db.prepare('SELECT COUNT(*) AS count FROM admin_credentials').get().count,0);
+  env.db.close();
+});
+
+test('limits reject before database access and include retry and CORS headers',async()=>{
+  for(const binding of ['API_RATE_LIMITER','LOGIN_RATE_LIMITER']){
+    const env={ALLOWED_ORIGIN:'https://bonk-critic.com',API_RATE_LIMITER:{async limit(){return {success:true}}},LOGIN_RATE_LIMITER:{async limit(){return {success:true}}},DB:{prepare(){throw Error('Database should not be reached')}}};
+    env[binding]={async limit({key}){assert.ok(key.endsWith('203.0.113.1'));return {success:false}}};
+    const response=await worker.fetch(new Request('https://api.test/api/login',{method:'POST',headers:{Origin:env.ALLOWED_ORIGIN,'CF-Connecting-IP':'203.0.113.1'}}),env);
+    assert.equal(response.status,429);
+    assert.equal(response.headers.get('Retry-After'),'60');
+    assert.equal(response.headers.get('Access-Control-Allow-Origin'),env.ALLOWED_ORIGIN);
+  }
+});
+
+test('missing limiter bindings fail closed',async()=>{
+  const response=await worker.fetch(new Request('https://api.test/api/players'),{});
+  assert.equal(response.status,503);
 });

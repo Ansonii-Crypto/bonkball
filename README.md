@@ -169,3 +169,12 @@ Apply `worker/migrations/0007_assessment_details.sql` before deploying this Work
 The public Classes page is available at `#/classes`. Definitions and example captions live in `classes.js`.
 
 To add an example, upload the clip under `videos/` and set the matching class's `video` to a relative path such as `./videos/weaver.mp4`. MP4 is the default (`videoType: 'video/mp4'`); WebM can use `videoType: 'video/webm'`. Leave `video` empty to show the coming-soon placeholder without requesting a missing file. The video uses native playback controls, including fullscreen and exiting fullscreen on supported browsers. Escape, the close button, or a click outside the details panel dismisses it; closing stops playback.
+
+
+## Passcode security and request limits
+
+Admin sign-in still uses personal six-digit passcodes. Initial setup now requires a valid, unexpired invitation; the old shared `ADMIN_CODE` no longer authorises setup. The primary administrator generates an invitation in Manage Accounts. Invitations last ten minutes and are consumed when the personal code is saved. Existing configured accounts continue to sign in normally. For a fresh database, the first primary account must be bootstrapped with a securely generated invitation through trusted database administration before public setup can work.
+
+The Worker uses the rate-limiting bindings in `worker/wrangler.toml`: 300 requests per minute per IP for the API, plus 20 login submissions per minute per IP. Rejected requests return HTTP 429 and Retry-After before database access. Shared networks share these budgets. Cloudflare counters are approximate and local to each location; they supplement the existing database-backed limit of ten login submissions per account per ten-minute window. These controls reduce abuse but are not a guarantee against distributed attacks. Missing limiter bindings return HTTP 503 rather than silently disabling protection.
+
+Deploy both the Worker code and its configuration together with `wrangler deploy` from `worker/`. Turnstile has not been enabled.

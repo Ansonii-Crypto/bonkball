@@ -7,3 +7,18 @@ database_name = "player-database"
 database_id = "87c7bcb9-abba-4c00-a216-60bc81ac647f"
 [vars]
 # Set ALLOWED_ORIGIN as a secret, not here.
+
+# Shared IP addresses share these budgets. Account limits also apply to login.
+[[ratelimits]]
+name = "API_RATE_LIMITER"
+namespace_id = "71001401"
+[ratelimits.simple]
+limit = 300
+period = 60
+
+[[ratelimits]]
+name = "LOGIN_RATE_LIMITER"
+namespace_id = "71001402"
+[ratelimits.simple]
+limit = 20
+period = 60

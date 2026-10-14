@@ -28,13 +28,13 @@ let window=Math.floor(Date.now()/600000);let attempts=await e.DB.prepare('INSERT
 let c=await credential(e,id);
 if(c?.code_hash){if(!/^\d{6}$/.test(code)||await codeHash(code,c.salt)!==c.code_hash)return J({error:'Invalid account code.'},401,o,e)}
 else{
-let invite=await e.DB.prepare('SELECT token,expires_at FROM admin_invitations WHERE account_id=? AND expires_at>?').bind(id,Date.now()).first();let allowed=invite?code===invite.token:code===e.ADMIN_CODE;
+let invite=await e.DB.prepare('SELECT token,expires_at FROM admin_invitations WHERE account_id=? AND expires_at>?').bind(id,Date.now()).first();let allowed=Boolean(invite) && code===invite.token;
 if(!allowed)return J({error:'Invalid setup code. Ask the primary administrator for an invitation.'},401,o,e);
 if(!b.new_code)return J({setup_required:true},200,o,e);
 if(!/^\d{6}$/.test(String(b.new_code))||b.new_code!==b.confirm_code)return J({error:'Enter and confirm the same six-digit personal code.'},400,o,e);
 let salt=uuid(),digest=await codeHash(b.new_code,salt);
-let setupTime=Date.now(),authorization=invite?"EXISTS(SELECT 1 FROM admin_invitations WHERE account_id=? AND token=? AND expires_at>?)":"NOT EXISTS(SELECT 1 FROM admin_invitations WHERE account_id=? AND expires_at>?)";
-let authorizationArgs=invite?[id,code,setupTime]:[id,setupTime];
+let setupTime=Date.now(),authorization="EXISTS(SELECT 1 FROM admin_invitations WHERE account_id=? AND token=? AND expires_at>?)";
+let authorizationArgs=[id,code,setupTime];
 let results=await e.DB.batch([e.DB.prepare(`INSERT INTO admin_credentials(account_id,salt,code_hash) SELECT ?,?,? WHERE ${authorization} ON CONFLICT(account_id) DO UPDATE SET salt=excluded.salt,code_hash=excluded.code_hash,invitation_hash=NULL WHERE admin_credentials.code_hash IS NULL`).bind(id,salt,digest,...authorizationArgs),accountAuditAfterChange(e,account,'set_admin_code',account.name),e.DB.prepare('DELETE FROM admin_invitations WHERE account_id=? AND EXISTS(SELECT 1 FROM admin_credentials WHERE account_id=? AND code_hash IS NOT NULL)').bind(id,id)]);let result=results[0];
 if(!result.meta?.changes)return J({error:'Setup invitation expired or changed, or account already set up. Try signing in again.'},409,o,e);
 }
@@ -119,4 +119,12 @@ audit(e,user,'deleted_player',pl,assessment?.id||null,null,true),
 e.DB.prepare('DELETE FROM assessments WHERE player_id=? AND NOT EXISTS(SELECT 1 FROM players WHERE id=?)').bind(id,id)
 ]);if(!result[0].meta?.changes)return J({error:'This player was locked or removed. It was not deleted.'},423,o,e);return J({ok:true},200,o,e)}
 return J({error:'Not found.'},404,o,e)}
-export default{async fetch(r,e){try{await e.DB.prepare('DELETE FROM admin_sessions WHERE expires_at<=?').bind(Date.now()).run();return await main(r,e)}catch(x){if(/UNIQUE constraint failed.*idx_players_unique_name/i.test(String(x?.message||x)))return J({error:duplicateNameError},409,r.headers.get('Origin')||'',e);return J({error:'Server error.'},500,r.headers.get('Origin')||'',e)}}};
+async function requestLimit(r,e){
+ const origin=r.headers.get('Origin')||'',ip=r.headers.get('CF-Connecting-IP')||'unknown';
+ if(!e.API_RATE_LIMITER||!e.LOGIN_RATE_LIMITER)return J({error:'Service temporarily unavailable.'},503,origin,e);
+ const rejected=()=>new Response(JSON.stringify({error:'Too many requests. Please wait a minute and try again.'}),{status:429,headers:{...H(origin,e),'Retry-After':'60'}});
+ if(!(await e.API_RATE_LIMITER.limit({key:'api:'+ip})).success)return rejected();
+ if(new URL(r.url).pathname==='/api/login'&&r.method==='POST'&&!(await e.LOGIN_RATE_LIMITER.limit({key:'login:'+ip})).success)return rejected();
+ return null;
+}
+export default{async fetch(r,e){try{let limited=await requestLimit(r,e);if(limited)return limited;await e.DB.prepare('DELETE FROM admin_sessions WHERE expires_at<=?').bind(Date.now()).run();return await main(r,e)}catch(x){if(/UNIQUE constraint failed.*idx_players_unique_name/i.test(String(x?.message||x)))return J({error:duplicateNameError},409,r.headers.get('Origin')||'',e);return J({error:'Server error.'},500,r.headers.get('Origin')||'',e)}}};
