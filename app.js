@@ -32,18 +32,27 @@ function sortPublicPlayers(players,order){
 async function home(){try{
  let {players}=await api('/api/players'),letters=[...new Set(players.map(p=>playerInitial(p.name)))].sort();
  publicPlayerLetters=new Set([...publicPlayerLetters].filter(letter=>letters.includes(letter)));
- render(`<div class="hero"><div class="eyebrow">PLAYER DATABASE</div><h1>Players</h1><p>Current ratings, classes and development records.</p></div><div class="toolbar"><input id="q" aria-label="Search players or classes" placeholder="Search players or classes?"></div><div class="player-directory-controls"><p class="meta">Toggle letters to filter player names. Select multiple letters or All to show every initial.</p><div class="player-sort-bar"><label for="playerSort">Sort players</label><select id="playerSort"><option value="name">Alphabetical</option><option value="points-desc">Points: highest to lowest</option><option value="points-asc">Points: lowest to highest</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div></div><div class="public-player-directory"><nav class="player-alphabet" aria-label="Filter players by initial"><button class="secondary" id="allPlayerLetters" aria-pressed="${!publicPlayerLetters.size}">All</button>${letters.map(letter=>`<button class="secondary" data-public-player-letter="${letter}" aria-pressed="${publicPlayerLetters.has(letter)}">${letter}</button>`).join('')}</nav><div id="cards" class="grid" aria-live="polite"></div></div>`);
+ render(`<div class="hero"><div class="eyebrow">PLAYER DATABASE</div><h1>Players</h1><p>Current ratings, classes and development records.</p></div><div class="toolbar"><input id="q" aria-label="Search players or classes" placeholder="Search players or classes?"></div><div class="player-directory-controls"><p class="meta">Toggle letters to filter player names. Select multiple letters or All to show every initial.</p><div class="player-sort-bar"><label for="playerSort">Sort players</label><select id="playerSort"><option value="name">Alphabetical</option><option value="points-desc">Points: highest to lowest</option><option value="points-asc">Points: lowest to highest</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div></div><div class="public-player-directory"><nav class="player-alphabet" aria-label="Filter players by initial"><button class="secondary" id="allPlayerLetters" aria-pressed="${!publicPlayerLetters.size}">All</button>${letters.map(letter=>`<button class="secondary" data-public-player-letter="${letter}" aria-pressed="${publicPlayerLetters.has(letter)}">${letter}</button>`).join('')}</nav><div id="cards" class="player-tier-groups" aria-live="polite"></div></div>`);
  function draw(){
   document.querySelectorAll('[data-public-player-letter]').forEach(button=>{let active=publicPlayerLetters.has(button.dataset.publicPlayerLetter);button.setAttribute('aria-pressed',active);button.classList.toggle('active',active)});
   let all=document.querySelector('#allPlayerLetters');all.setAttribute('aria-pressed',!publicPlayerLetters.size);all.classList.toggle('active',!publicPlayerLetters.size);
   let query=document.querySelector('#q').value.trim().toLowerCase(),visible=sortPublicPlayers(players.filter(player=>(!publicPlayerLetters.size||publicPlayerLetters.has(playerInitial(player.name)))&&(player.name+' '+(player.class_name||'')).toLowerCase().includes(query)),publicPlayerSort);
-  document.querySelector('#cards').innerHTML=visible.length?visible.map(card).join(''):`<div class="empty" style="grid-column:1/-1">No players found.</div>`;
+  document.querySelector('#cards').innerHTML=playerTierGroups(visible);
  }
  document.querySelector('#q').oninput=draw;
  const sort=document.querySelector('#playerSort');sort.value=publicPlayerSort;sort.onchange=()=>{publicPlayerSort=sort.value;draw()};
  document.querySelector('#allPlayerLetters').onclick=()=>{publicPlayerLetters.clear();draw()};
  document.querySelectorAll('[data-public-player-letter]').forEach(button=>button.onclick=()=>{let letter=button.dataset.publicPlayerLetter;if(publicPlayerLetters.has(letter))publicPlayerLetters.delete(letter);else publicPlayerLetters.add(letter);draw()});draw();
 }catch(e){render(`<div class="empty">${esc(e.message)}</div>`)}}
+
+function playerTierGroups(players){
+ if(!players.length)return '<div class="empty">No players found.</div>';
+ return ['S','A','B','C','D','E','F'].map(rank=>{
+  const group=players.filter(player=>player.overall_tier===rank);
+  if(!group.length)return '';
+  return `<section class="player-tier-group" aria-labelledby="tierHeading${rank}"><div class="tier-divider"><hr aria-hidden="true"><h2 id="tierHeading${rank}">${rank} Tier</h2><hr aria-hidden="true"></div><div class="grid">${group.map(card).join('')}</div></section>`;
+ }).join('');
+}
 
 function card(p){return `<a class="player-card" href="#/player/${encodeURIComponent(p.id)}"><div class="card card-surface"><div class="player-head"><div><div class="name">${esc(p.name)}</div><div class="class">${esc(p.class_name||'Class undetermined')}${p.locked?' · LOCKED':''}</div></div><span class="badge ${p.overall_tier}">${p.overall_tier}</span></div>${A.map(([k,s])=>`<div class="barrow"><span>${s}</span><div class="bar"><i style="width:${Math.min(100,(p[k]||0)/3)}%"></i></div><b>${tier(p[k])}</b></div>`).join('')}<div class="meta">${A.reduce((n,[k])=>n+Number(p[k]||0),0)} / 1800 · ${date(p.assessed_at)}</div></div></a>`}
 
