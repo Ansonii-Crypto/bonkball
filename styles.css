@@ -231,3 +231,11 @@ main{overflow-anchor:none}
 .tier-divider h2{display:flex;align-items:center;gap:10px;flex-shrink:0;margin:0;font-size:21px;line-height:1.2}
 .tier-divider hr{flex:1;min-width:0;margin:0;border:0;border-top:2px solid var(--line)}
 .tier-divider hr:first-child{flex:0 0 28px}
+
+.assessment-tier-picker{min-width:0;margin:0;padding:0;border:0}
+.assessment-tier-picker legend{margin-bottom:6px;padding:0;color:var(--muted);font-size:12px;font-weight:bold}
+.assessment-tier-buttons{display:flex;flex-wrap:wrap;gap:10px;padding-bottom:4px}
+.assessment-tier-buttons button{min-width:42px;padding:10px;transform:none}
+.assessment-tier-buttons button[aria-pressed="true"]{background:var(--a);color:#fff;border-color:var(--line);box-shadow:inset 0 0 0 2px var(--p),0 4px 0 var(--line)}
+.assessment-tier-picker .meta{margin:8px 0 0}
+.assessment-tier-picker .error{margin:4px 0 0}
