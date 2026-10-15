@@ -37,7 +37,7 @@ async function home(){try{
   document.querySelectorAll('[data-public-player-letter]').forEach(button=>{let active=publicPlayerLetters.has(button.dataset.publicPlayerLetter);button.setAttribute('aria-pressed',active);button.classList.toggle('active',active)});
   let all=document.querySelector('#allPlayerLetters');all.setAttribute('aria-pressed',!publicPlayerLetters.size);all.classList.toggle('active',!publicPlayerLetters.size);
   let query=document.querySelector('#q').value.trim().toLowerCase(),visible=sortPublicPlayers(players.filter(player=>(!publicPlayerLetters.size||publicPlayerLetters.has(playerInitial(player.name)))&&(player.name+' '+(player.class_name||'')).toLowerCase().includes(query)),publicPlayerSort);
-  document.querySelector('#cards').innerHTML=playerTierGroups(visible);
+  document.querySelector('#cards').innerHTML=playerTierGroups(visible,publicPlayerSort);
  }
  document.querySelector('#q').oninput=draw;
  const sort=document.querySelector('#playerSort');sort.value=publicPlayerSort;sort.onchange=()=>{publicPlayerSort=sort.value;draw()};
@@ -45,9 +45,11 @@ async function home(){try{
  document.querySelectorAll('[data-public-player-letter]').forEach(button=>button.onclick=()=>{let letter=button.dataset.publicPlayerLetter;if(publicPlayerLetters.has(letter))publicPlayerLetters.delete(letter);else publicPlayerLetters.add(letter);draw()});draw();
 }catch(e){render(`<div class="empty">${esc(e.message)}</div>`)}}
 
-function playerTierGroups(players){
+function playerTierGroups(players,order='name'){
  if(!players.length)return '<div class="empty">No players found.</div>';
- return ['S','A','B','C','D','E','F'].map(rank=>{
+ const ranks=['S','A','B','C','D','E','F'];
+ if(order==='points-asc')ranks.reverse();
+ return ranks.map(rank=>{
   const group=players.filter(player=>player.overall_tier===rank);
   if(!group.length)return '';
   return `<section class="player-tier-group" aria-labelledby="tierHeading${rank}"><div class="tier-divider"><hr aria-hidden="true"><h2 id="tierHeading${rank}">${rank} Tier</h2><hr aria-hidden="true"></div><div class="grid">${group.map(card).join('')}</div></section>`;
