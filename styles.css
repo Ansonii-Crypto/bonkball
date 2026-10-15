@@ -228,6 +228,7 @@ main{overflow-anchor:none}
 .player-tier-groups{min-width:0;display:flex;flex-direction:column;gap:32px}
 .player-tier-group{min-width:0}
 .tier-divider{display:flex;align-items:center;gap:14px;margin:0 0 20px}
-.tier-divider h2{flex-shrink:0;margin:0;padding:7px 15px;border:2px solid var(--line);border-radius:999px;background:var(--tier-colour,var(--p2));font-size:21px;line-height:1.2}
+.tier-divider h2{display:flex;align-items:center;gap:10px;flex-shrink:0;margin:0;font-size:21px;line-height:1.2}
+.tier-divider h2::before{content:'';width:22px;height:22px;flex-shrink:0;border:2px solid var(--line);border-radius:50%;background:var(--tier-colour,var(--p2))}
 .tier-divider hr{flex:1;min-width:0;margin:0;border:0;border-top:2px solid var(--line)}
 .tier-divider hr:first-child{flex:0 0 28px}
