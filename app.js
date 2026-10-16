@@ -30,9 +30,18 @@ function sortPublicPlayers(players,order){
   return byName(a,b);
  });
 }
+function tierPodiumRanks(players){
+ const ranks=new Map(),counts=new Map();
+ for(const player of sortPublicPlayers(players,'points-desc')){
+  const rank=(counts.get(player.overall_tier)||0)+1;counts.set(player.overall_tier,rank);
+  if(rank<=3&&/^[SABCDEF]$/.test(player.overall_tier))ranks.set(player.id,rank);
+ }
+ return ranks;
+}
 async function home(){try{
  let {players}=await api('/api/players'),letters=[...new Set(players.map(p=>playerInitial(p.name)))].sort();
  publicPlayerLetters=new Set([...publicPlayerLetters].filter(letter=>letters.includes(letter)));
+ const podiumRanks=tierPodiumRanks(players);
  const availableTiers=['S','A','B','C','D','E','F'].filter(rank=>players.some(player=>player.overall_tier===rank));
  publicPlayerTiers=new Set([...publicPlayerTiers].filter(rank=>availableTiers.includes(rank)));
  render(`<div class="hero"><div class="eyebrow">PLAYER DATABASE</div><h1>Players</h1><p>Current ratings, classes and development records.</p></div><div class="toolbar"><input id="q" aria-label="Search players or classes" placeholder="Search players or classes?"></div><div class="player-directory-controls"><p class="meta">Filter by tier and initial. Use All to reset either index. Names starting with numbers or symbols appear under #.</p><div class="player-sort-bar"><label for="playerSort">Sort players</label><select id="playerSort"><option value="name">Alphabetical</option><option value="points-desc">Descending</option><option value="points-asc">Ascending</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></div></div><div class="public-player-directory"><div class="public-player-indexes"><nav class="player-alphabet player-tier-index" aria-label="Filter players by tier"><button class="secondary" id="allPlayerTiers" aria-label="All tiers" aria-pressed="${!publicPlayerTiers.size}">All</button>${availableTiers.map(rank=>`<button class="secondary" data-public-player-tier="${rank}" title="${rank} tier players" aria-label="${rank} tier" aria-pressed="${publicPlayerTiers.has(rank)}">${rank}</button>`).join('')}</nav><nav class="player-alphabet" aria-label="Filter players by initial"><button class="secondary" id="allPlayerLetters" aria-pressed="${!publicPlayerLetters.size}">All</button>${letters.map(letter=>`<button class="secondary" data-public-player-letter="${letter}" title="${letter==='#'?'Names starting with a number or symbol':'Names starting with '+letter}" aria-label="${letter==='#'?'Names starting with a number or symbol':'Names starting with '+letter}" aria-pressed="${publicPlayerLetters.has(letter)}">${letter}</button>`).join('')}</nav></div><div id="cards" class="grid" aria-live="polite"></div></div>`);
@@ -42,7 +51,7 @@ async function home(){try{
   const allTiers=document.querySelector('#allPlayerTiers');allTiers.setAttribute('aria-pressed',!publicPlayerTiers.size);allTiers.classList.toggle('active',!publicPlayerTiers.size);
   let all=document.querySelector('#allPlayerLetters');all.setAttribute('aria-pressed',!publicPlayerLetters.size);all.classList.toggle('active',!publicPlayerLetters.size);
   let query=document.querySelector('#q').value.trim().toLowerCase(),visible=sortPublicPlayers(players.filter(player=>(!publicPlayerTiers.size||publicPlayerTiers.has(player.overall_tier))&&(!publicPlayerLetters.size||publicPlayerLetters.has(playerInitial(player.name)))&&(player.name+' '+(player.class_name||'')).toLowerCase().includes(query)),publicPlayerSort);
-  document.querySelector('#cards').innerHTML=visible.length?visible.map(card).join(''):'<div class="empty" style="grid-column:1/-1">No players found.</div>';
+  document.querySelector('#cards').innerHTML=visible.length?visible.map(player=>card(player,podiumRanks.get(player.id))).join(''):'<div class="empty" style="grid-column:1/-1">No players found.</div>';
  }
  document.querySelectorAll('[data-public-player-tier]').forEach(button=>button.onclick=()=>{const rank=button.dataset.publicPlayerTier;if(publicPlayerTiers.has(rank))publicPlayerTiers.delete(rank);else publicPlayerTiers.add(rank);draw()});
  document.querySelector('#q').oninput=draw;
@@ -52,7 +61,7 @@ async function home(){try{
  document.querySelectorAll('[data-public-player-letter]').forEach(button=>button.onclick=()=>{let letter=button.dataset.publicPlayerLetter;if(publicPlayerLetters.has(letter))publicPlayerLetters.delete(letter);else publicPlayerLetters.add(letter);draw()});draw();
 }catch(e){render(`<div class="empty">${esc(e.message)}</div>`)}}
 
-function card(p){return `<a class="player-card" href="#/player/${encodeURIComponent(p.id)}"><div class="card card-surface"><div class="player-head"><div><div class="name">${esc(p.name)}</div><div class="class">${esc(p.class_name||'Class undetermined')}</div></div><span class="badge ${p.overall_tier}">${p.overall_tier}</span></div>${A.map(([k,s])=>`<div class="barrow"><span>${s}</span><div class="bar"><i style="width:${Math.min(100,(p[k]||0)/3)}%"></i></div><b>${tier(p[k])}</b></div>`).join('')}<div class="meta">${A.reduce((n,[k])=>n+Number(p[k]||0),0)} / 1800 · ${date(p.assessed_at)}</div></div></a>`}
+function card(p,placement=null){return `<a class="player-card" href="#/player/${encodeURIComponent(p.id)}"><div class="card card-surface"><div class="player-head"><div><div class="name">${esc(p.name)}</div><div class="class">${esc(p.class_name||'Class undetermined')}</div></div><span class="badge ${p.overall_tier}">${p.overall_tier}</span></div><div class="player-placement-slot">${placement?`<span class="tier-placement ${esc(p.overall_tier)}" title="Ranked #${placement} in ${esc(p.overall_tier)} tier by total points; ties use the earlier assessment date.">${esc(p.overall_tier)} Tier &middot; #${placement}</span>`:''}</div>${A.map(([k,s])=>`<div class="barrow"><span>${s}</span><div class="bar"><i style="width:${Math.min(100,(p[k]||0)/3)}%"></i></div><b>${tier(p[k])}</b></div>`).join('')}<div class="meta">${A.reduce((n,[k])=>n+Number(p[k]||0),0)} / 1800 · ${date(p.assessed_at)}</div></div></a>`}
 
 function assessmentOrder(history){return history.slice().sort((a,b)=>String(b.assessed_at).localeCompare(String(a.assessed_at))||Number(b.id)-Number(a.id))}
 function assessmentDetails(h){let sum=Number(h.total??A.reduce((n,[key])=>n+Number(h[key]||0),0));return `<div class="assessment-heading"><strong>${esc(date(h.assessed_at))}</strong><span class="badge ${esc(h.overall_tier)}">${esc(h.overall_tier)}</span></div><div class="meta">Overall tier ${esc(h.overall_tier)} ? Assessment #${Number(h.id)}</div><p class="meta assessment-author">Assessed by: <strong>${esc(h.assessed_by||'Not recorded')}</strong></p><table class="table"><thead><tr><th>Attribute</th><th>Points</th><th>Tier</th></tr></thead><tbody>${A.map(([key,,label])=>`<tr><td>${label}</td><td>${Number(h[key]||0)} / 300</td><td><b>${tier(h[key])}</b></td></tr>`).join('')}</tbody></table><div class="stats"><div class="stat"><b>${sum}</b><span>Total / 1800</span></div><div class="stat"><b>${(sum/6).toFixed(2)}</b><span>Average / 300</span></div><div class="stat"><b>${tier(sum/6)}</b><span>Attribute Tier</span></div></div>${h.notes?`<h3>Notes</h3><p class="assessment-notes">${esc(h.notes)}</p>`:''}`}
