@@ -70,3 +70,36 @@ test('missing limiter bindings fail closed',async()=>{
   const response=await worker.fetch(new Request('https://api.test/api/players'),{});
   assert.equal(response.status,503);
 });
+
+test('shared drafts stay private, enforce ownership and revisions, and publish once',async()=>{
+  const env=environment();
+  for(const id of ['author','viewer']){
+    env.db.prepare('INSERT INTO admin_accounts VALUES(?,?,0)').run(id,id);
+    env.db.prepare('INSERT INTO admin_credentials(account_id,code_hash) VALUES(?,?)').run(id,'test-only');
+    const digest=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(id+'-token'))).toString('hex');
+    env.db.prepare('INSERT INTO admin_sessions VALUES(?,?,?)').run(digest,Date.now()+600000,id);
+  }
+  const request=(path,method='GET',body=null,user='author')=>worker.fetch(new Request('https://api.test'+path,{method,headers:user?{Authorization:'Bearer '+user+'-token'}:{},...(body?{body:JSON.stringify(body)}:{})}),env);
+  assert.equal((await request('/api/player-drafts','GET',null,null)).status,401);
+  const created=await request('/api/player-drafts','POST',{data:{name:'Draft player',control:'123'}});
+  assert.equal(created.status,201);
+  const {id,revision}=await created.json();
+  const list=await (await request('/api/player-drafts','GET',null,'viewer')).json();
+  assert.equal(list.drafts.length,1);
+  assert.equal(list.drafts[0].owner_name,'author');
+  assert.equal((await (await request('/api/players')).json()).players.length,0);
+  assert.equal((await request('/api/player-drafts/'+id,'PUT',{data:{name:'Overwrite'},revision},'viewer')).status,403);
+  assert.equal((await request('/api/player-drafts/'+id+'/push','POST',{revision},'viewer')).status,403);
+  assert.equal((await request('/api/player-drafts/'+id+'/push','POST',{revision})).status,400);
+  const data={name:'Draft player',overall_tier:'A',assessed_at:'2026-10-16',control:123,execution:200,defending:200,reaction_time:200,chemistry:200,game_sense:200,class_name:'Renegade'};
+  assert.equal((await request('/api/player-drafts/'+id,'PUT',{data,revision})).status,200);
+  assert.equal((await request('/api/player-drafts/'+id,'PUT',{data:{name:'Stale'},revision})).status,409);
+  assert.equal((await request('/api/player-drafts/'+id+'/push','POST',{revision})).status,409);
+  assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM players').get().n,0);
+  assert.equal((await request('/api/player-drafts/'+id+'/push','POST',{revision:2})).status,201);
+  assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM player_drafts').get().n,0);
+  assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM players').get().n,1);
+  assert.equal(env.db.prepare('SELECT total FROM assessments').get().total,1123);
+  assert.equal((await request('/api/player-drafts/'+id+'/push','POST',{revision:2})).status,404);
+  env.db.close();
+});

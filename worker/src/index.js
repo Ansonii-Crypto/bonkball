@@ -18,6 +18,12 @@ function valid(p){if(!p.name?.trim())return'Player name is required.';if(!/^[SAB
 async function duplicatePlayer(e,name,exceptId=''){return e.DB.prepare('SELECT id FROM players WHERE trim(name) = trim(?) COLLATE NOCASE AND id <> ? LIMIT 1').bind(name,exceptId).first()}
 const duplicateNameError='A player with that name already exists. Edit the existing player to add another assessment.';
 function snap(e,p,onlyChanged=false){return e.DB.prepare(`INSERT INTO assessments(player_id,assessed_at,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,total,class_name,playstyle,strengths,weaknesses) ${onlyChanged?'SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE changes() > 0':'VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)'}`).bind(p.id,p.assessed_at,p.overall_tier,...A.map(k=>Number(p[k])),total(p),p.class_name||'',p.playstyle||'',p.strengths||'',p.weaknesses||'')}
+function draftData(input){
+ if(!input||typeof input!=='object'||Array.isArray(input))return null;
+ const keys=['name','class_name','overall_tier','assessed_at','playstyle','strengths','weaknesses',...A],data={};
+ for(const key of keys){let value=input[key]??'';if(typeof value!=='string'&&typeof value!=='number')return null;if(!A.includes(key)&&typeof value!=='string')return null;if(String(value).length>5000)return null;data[key]=value}
+ return data;
+}
 async function main(r,e){let u=new URL(r.url),o=r.headers.get('Origin')||'',p=u.pathname,m=r.method;
 if(m==='OPTIONS')return new Response(null,{status:204,headers:{...H(o,e),'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization'}});
 if(p==='/api/session'){let s=await session(r,e);return J({authenticated:!!s?.id,code_verified:!!s,account:s?.id?{id:s.id,name:s.name,is_primary:!!s.is_primary}:null},200,o,e);}
@@ -86,6 +92,39 @@ let count=await e.DB.prepare('SELECT COUNT(*) AS total FROM activity_logs'+where
 let rows=await e.DB.prepare('SELECT * FROM activity_logs'+where+' ORDER BY id DESC LIMIT ? OFFSET ?').bind(...args,size,(page-1)*size).all();
 let actors=await e.DB.prepare('SELECT actor_id AS id,MAX(actor_name) AS name FROM activity_logs GROUP BY actor_id ORDER BY name COLLATE NOCASE').all(),actions=await e.DB.prepare('SELECT DISTINCT action FROM activity_logs ORDER BY action').all();
 return J({logs:rows.results,total,page,page_size:size,total_pages:pages,administrators:actors.results,actions:actions.results.map(x=>x.action)},200,o,e)}
+if(p==='/api/player-drafts'||p.startsWith('/api/player-drafts/')){
+ const user=await session(r,e);if(!user?.id)return J({error:'Sign in to view player drafts.'},401,o,e);
+ const match=p.match(/^\/api\/player-drafts\/([^/]+)(\/push)?$/),id=match?decodeURIComponent(match[1]):null;
+ if(!id&&p!=='/api/player-drafts')return J({error:'Not found.'},404,o,e);
+ if(!id&&m==='GET'){let rows=await e.DB.prepare('SELECT * FROM player_drafts ORDER BY updated_at DESC,id').all();return J({drafts:rows.results.map(row=>({...row,data:JSON.parse(row.data)}))},200,o,e)}
+ if(!id&&m==='POST'){
+  let b=await r.json(),data=draftData(b.data);if(!data)return J({error:'Invalid draft data.'},400,o,e);
+  const draftId=uuid();await e.DB.prepare('INSERT INTO player_drafts(id,owner_id,owner_name,data,updated_at) VALUES(?,?,?,?,?)').bind(draftId,user.id,user.name,JSON.stringify(data),now()).run();return J({id:draftId,revision:1},201,o,e);
+ }
+ if(!id)return J({error:'Method not allowed.'},405,o,e);
+ let draft=await e.DB.prepare('SELECT * FROM player_drafts WHERE id=?').bind(id).first();if(!draft)return J({error:'Draft no longer exists. It may have been pushed or deleted.'},404,o,e);
+ if(draft.owner_id!==user.id)return J({error:'Only the draft owner can change or push it.'},403,o,e);
+ let b=await r.json();if(!Number.isInteger(b.revision)||b.revision<1)return J({error:'A valid draft revision is required.'},400,o,e);
+ if(match[2]&&m==='POST'){
+  let data=JSON.parse(draft.data),err=valid(data);if(err)return J({error:err},400,o,e);
+  if(await duplicatePlayer(e,data.name.trim()))return J({error:duplicateNameError},409,o,e);
+  let t=now(),results=await e.DB.batch([
+   e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,? WHERE EXISTS(SELECT 1 FROM player_drafts WHERE id=? AND owner_id=? AND revision=?)').bind(id,data.name.trim(),data.class_name||'',data.overall_tier,...A.map(k=>Number(data[k])),data.playstyle||'',data.strengths||'',data.weaknesses||'',data.assessed_at,t,t,id,user.id,Number(b.revision)),
+   snap(e,{...data,id},true),audit(e,user,'created_player',{...data,id,name:data.name.trim()},null,null,true),
+   e.DB.prepare('DELETE FROM player_drafts WHERE id=? AND EXISTS(SELECT 1 FROM players WHERE id=?)').bind(id,id)
+  ]);
+  if(!results[0].meta?.changes)return J({error:'This draft changed in another tab. Reopen it before pushing.'},409,o,e);
+  return J({ok:true,id},201,o,e);
+ }
+ if(match[2])return J({error:'Method not allowed.'},405,o,e);
+ if(m==='PUT'){
+  let data=draftData(b.data);if(!data)return J({error:'Invalid draft data.'},400,o,e);
+  let result=await e.DB.prepare('UPDATE player_drafts SET data=?,updated_at=?,revision=revision+1 WHERE id=? AND owner_id=? AND revision=?').bind(JSON.stringify(data),now(),id,user.id,Number(b.revision)).run();
+  if(!result.meta?.changes)return J({error:'This draft changed in another tab. Reopen it before saving.'},409,o,e);
+  return J({id,revision:Number(b.revision)+1},200,o,e);
+ }
+ return J({error:'Method not allowed.'},405,o,e);
+}
 if(p==='/api/players'&&m==='GET'){let x=await e.DB.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE').all();return J({players:x.results},200,o,e)}
 if(p==='/api/players'&&m==='POST'){let q=await guard(r,e,o);if(q)return q;let b=await r.json(),err=valid(b);if(err)return J({error:err},400,o,e);if(await duplicatePlayer(e,b.name.trim()))return J({error:duplicateNameError},409,o,e);let i=uuid(),t=now();await e.DB.batch([e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(i,b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,0,t,t),snap(e,{...b,id:i}),audit(e,await session(r,e),'created_player',{...b,id:i,name:b.name.trim()})]);return J({ok:true,id:i},201,o,e)}
 let assessmentDelete=p.match(/^\/api\/players\/([^/]+)\/assessments\/(\d+)$/);

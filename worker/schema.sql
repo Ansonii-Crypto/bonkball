@@ -22,3 +22,5 @@ CREATE INDEX IF NOT EXISTS idx_activity_actor ON activity_logs(actor_id);
 CREATE INDEX IF NOT EXISTS idx_activity_account ON activity_logs(account_name);
 
 CREATE TABLE IF NOT EXISTS admin_code_requests(account_id TEXT PRIMARY KEY REFERENCES admin_accounts(id) ON DELETE CASCADE,requested_at TEXT NOT NULL);
+
+CREATE TABLE IF NOT EXISTS player_drafts(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES admin_accounts(id) ON DELETE CASCADE,owner_name TEXT NOT NULL,data TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,updated_at TEXT NOT NULL);

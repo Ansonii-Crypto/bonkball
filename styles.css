@@ -243,3 +243,9 @@ main{overflow-anchor:none}
 /* Highlight the existing dropdown border without adding an outer ring. */
 select:focus{outline:none}
 select:focus-visible{border-color:#285b88}
+
+.assessment-form-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:14px;margin-top:20px}
+.draft-heading{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.draft-list{margin-top:20px}
+.draft-list .listrow>div{text-align:left}
+.assessment-form-actions[hidden]{display:none}

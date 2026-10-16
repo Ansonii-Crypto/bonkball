@@ -178,3 +178,17 @@ Admin sign-in still uses personal six-digit passcodes. Initial setup now require
 The Worker uses the rate-limiting bindings in `worker/wrangler.toml`: 300 requests per minute per IP for the API, plus 20 login submissions per minute per IP. Rejected requests return HTTP 429 and Retry-After before database access. Shared networks share these budgets. Cloudflare counters are approximate and local to each location; they supplement the existing database-backed limit of ten login submissions per account per ten-minute window. These controls reduce abuse but are not a guarantee against distributed attacks. Missing limiter bindings return HTTP 503 rather than silently disabling protection.
 
 Deploy both the Worker code and its configuration together with `wrangler deploy` from `worker/`. Turnstile has not been enabled.
+
+
+## Shared new-player drafts
+
+New Player shows saved drafts, or a blank form if there are none. Save temporarily accepts incomplete statistics and stores a private draft in D1. All signed-in admins can view saved drafts; only the author can continue or push them. Unsaved typing is not shared. Push saves the current form and publishes the player with their first assessment, then removes the draft atomically. Existing assessment forms use Apply. Revision checks reject stale saves/pushes from another tab. Drafts are removed if their author account is deleted.
+
+Before deploying this feature, run from `worker/`:
+
+```powershell
+wrangler d1 execute player-database --remote --file=./migrations/0008_player_drafts.sql
+wrangler deploy
+```
+
+Publish `drafts.js` alongside the updated `app.js`, `index.html`, and `styles.css` to GitHub Pages.
