@@ -105,6 +105,11 @@ if(p==='/api/player-drafts'||p.startsWith('/api/player-drafts/')){
  let draft=await e.DB.prepare('SELECT * FROM player_drafts WHERE id=?').bind(id).first();if(!draft)return J({error:'Draft no longer exists. It may have been pushed or deleted.'},404,o,e);
  if(draft.owner_id!==user.id)return J({error:'Only the draft owner can change or push it.'},403,o,e);
  let b=await r.json();if(!Number.isInteger(b.revision)||b.revision<1)return J({error:'A valid draft revision is required.'},400,o,e);
+ if(m==='DELETE'&&!match[2]){
+  let result=await e.DB.prepare('DELETE FROM player_drafts WHERE id=? AND owner_id=? AND revision=?').bind(id,user.id,b.revision).run();
+  if(!result.meta?.changes)return J({error:'This draft changed in another tab. Reopen it before discarding.'},409,o,e);
+  return J({ok:true},200,o,e);
+ }
  if(match[2]&&m==='POST'){
   let data=JSON.parse(draft.data),err=valid(data);if(err)return J({error:err},400,o,e);
   if(await duplicatePlayer(e,data.name.trim()))return J({error:duplicateNameError},409,o,e);

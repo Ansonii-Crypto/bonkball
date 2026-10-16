@@ -101,5 +101,12 @@ test('shared drafts stay private, enforce ownership and revisions, and publish o
   assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM players').get().n,1);
   assert.equal(env.db.prepare('SELECT total FROM assessments').get().total,1123);
   assert.equal((await request('/api/player-drafts/'+id+'/push','POST',{revision:2})).status,404);
+  const discard=await (await request('/api/player-drafts','POST',{data:{name:'Discard me'}})).json();
+  assert.equal((await request('/api/player-drafts/'+discard.id,'DELETE',{revision:1},'viewer')).status,403);
+  assert.equal((await request('/api/player-drafts/'+discard.id,'DELETE',{revision:2})).status,409);
+  assert.equal((await request('/api/player-drafts/'+discard.id,'DELETE',{revision:1})).status,200);
+  assert.equal((await request('/api/player-drafts/'+discard.id,'DELETE',{revision:1})).status,404);
+  assert.equal(env.db.prepare('SELECT COUNT(*) AS n FROM players').get().n,1);
+
   env.db.close();
 });
