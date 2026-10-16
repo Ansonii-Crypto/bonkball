@@ -253,3 +253,16 @@ select:focus-visible{border-color:#285b88}
 .automatic-tier button[data-assessment-tier="D"][aria-pressed="true"]{background:#82c6cb}
 .automatic-tier button[data-assessment-tier="E"][aria-pressed="true"]{background:#eda4e3}
 .automatic-tier button[data-assessment-tier="F"][aria-pressed="true"]{background:#a36cfd}
+
+/* Tier colours and round controls distinguish rank from name initials. */
+.player-index-label{flex-basis:100%;font-size:11px;line-height:18px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:var(--text)}
+.player-tier-index button[data-public-player-tier]{border-radius:50%;background:var(--tier-filter-colour);color:var(--text)}
+.player-tier-index button[data-public-player-tier].active{border-width:4px;text-decoration:underline;text-underline-offset:3px;box-shadow:0 4px 0 var(--line)}
+.player-tier-index [data-public-player-tier="S"]{--tier-filter-colour:#fe2f44}
+.player-tier-index [data-public-player-tier="A"]{--tier-filter-colour:#fca475}
+.player-tier-index [data-public-player-tier="B"]{--tier-filter-colour:#fcfe90}
+.player-tier-index [data-public-player-tier="C"]{--tier-filter-colour:#7c905f}
+.player-tier-index [data-public-player-tier="D"]{--tier-filter-colour:#82c6cb}
+.player-tier-index [data-public-player-tier="E"]{--tier-filter-colour:#eda4e3}
+.player-tier-index [data-public-player-tier="F"]{--tier-filter-colour:#a36cfd}
+@media(min-width:1400px){.player-index-label{flex-basis:auto;text-align:center;width:42px}}
