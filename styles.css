@@ -249,3 +249,13 @@ select:focus-visible{border-color:#285b88}
 .draft-list{margin-top:20px}
 .draft-list .listrow>div{text-align:left}
 .assessment-form-actions[hidden]{display:none}
+
+.automatic-tier button:disabled{opacity:.3;cursor:default;filter:none}
+.automatic-tier button[aria-pressed="true"]:disabled{opacity:1;background:var(--p2);color:var(--text)}
+.automatic-tier button[data-assessment-tier="S"][aria-pressed="true"]{background:#fe2f44}
+.automatic-tier button[data-assessment-tier="A"][aria-pressed="true"]{background:#fca475}
+.automatic-tier button[data-assessment-tier="B"][aria-pressed="true"]{background:#fcfe90}
+.automatic-tier button[data-assessment-tier="C"][aria-pressed="true"]{background:#7c905f}
+.automatic-tier button[data-assessment-tier="D"][aria-pressed="true"]{background:#82c6cb}
+.automatic-tier button[data-assessment-tier="E"][aria-pressed="true"]{background:#eda4e3}
+.automatic-tier button[data-assessment-tier="F"][aria-pressed="true"]{background:#a36cfd}

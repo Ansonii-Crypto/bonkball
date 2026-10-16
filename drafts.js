@@ -19,6 +19,7 @@ function openPlayerDraft(draft,accountId){
  const formElement=container.querySelector('#pf');
  if(draft&&draft.owner_id!==accountId){
   container.querySelector('.draft-heading p').textContent+=' ? Read-only preview';
+  wireAutomaticTier(formElement);
   formElement.querySelectorAll('input,textarea,select,button').forEach(control=>control.disabled=true);
   formElement.querySelector('.new-player-actions').hidden=true;
   return;

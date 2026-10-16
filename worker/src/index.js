@@ -18,11 +18,12 @@ function valid(p){if(!p.name?.trim())return'Player name is required.';if(!/^[SAB
 async function duplicatePlayer(e,name,exceptId=''){return e.DB.prepare('SELECT id FROM players WHERE trim(name) = trim(?) COLLATE NOCASE AND id <> ? LIMIT 1').bind(name,exceptId).first()}
 const duplicateNameError='A player with that name already exists. Edit the existing player to add another assessment.';
 function snap(e,p,onlyChanged=false){return e.DB.prepare(`INSERT INTO assessments(player_id,assessed_at,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,total,class_name,playstyle,strengths,weaknesses) ${onlyChanged?'SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE changes() > 0':'VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)'}`).bind(p.id,p.assessed_at,p.overall_tier,...A.map(k=>Number(p[k])),total(p),p.class_name||'',p.playstyle||'',p.strengths||'',p.weaknesses||'')}
+const calculatedTier=p=>{let average=total(p)/A.length;return average>=257?'S':average>=215?'A':average>=172?'B':average>=129?'C':average>=86?'D':average>=43?'E':'F'};
 function draftData(input){
  if(!input||typeof input!=='object'||Array.isArray(input))return null;
  const keys=['name','class_name','overall_tier','assessed_at','playstyle','strengths','weaknesses',...A],data={};
  for(const key of keys){let value=input[key]??'';if(typeof value!=='string'&&typeof value!=='number')return null;if(!A.includes(key)&&typeof value!=='string')return null;if(String(value).length>5000)return null;data[key]=value}
- return data;
+ data.overall_tier=calculatedTier(data);return data;
 }
 async function main(r,e){let u=new URL(r.url),o=r.headers.get('Origin')||'',p=u.pathname,m=r.method;
 if(m==='OPTIONS')return new Response(null,{status:204,headers:{...H(o,e),'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization'}});
@@ -111,7 +112,7 @@ if(p==='/api/player-drafts'||p.startsWith('/api/player-drafts/')){
   return J({ok:true},200,o,e);
  }
  if(match[2]&&m==='POST'){
-  let data=JSON.parse(draft.data),err=valid(data);if(err)return J({error:err},400,o,e);
+  let data=JSON.parse(draft.data);data.overall_tier=calculatedTier(data);let err=valid(data);if(err)return J({error:err},400,o,e);
   if(await duplicatePlayer(e,data.name.trim()))return J({error:duplicateNameError},409,o,e);
   let t=now(),results=await e.DB.batch([
    e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,? WHERE EXISTS(SELECT 1 FROM player_drafts WHERE id=? AND owner_id=? AND revision=?)').bind(id,data.name.trim(),data.class_name||'',data.overall_tier,...A.map(k=>Number(data[k])),data.playstyle||'',data.strengths||'',data.weaknesses||'',data.assessed_at,t,t,id,user.id,Number(b.revision)),
@@ -131,7 +132,7 @@ if(p==='/api/player-drafts'||p.startsWith('/api/player-drafts/')){
  return J({error:'Method not allowed.'},405,o,e);
 }
 if(p==='/api/players'&&m==='GET'){let x=await e.DB.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE').all();return J({players:x.results},200,o,e)}
-if(p==='/api/players'&&m==='POST'){let q=await guard(r,e,o);if(q)return q;let b=await r.json(),err=valid(b);if(err)return J({error:err},400,o,e);if(await duplicatePlayer(e,b.name.trim()))return J({error:duplicateNameError},409,o,e);let i=uuid(),t=now();await e.DB.batch([e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(i,b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,0,t,t),snap(e,{...b,id:i}),audit(e,await session(r,e),'created_player',{...b,id:i,name:b.name.trim()})]);return J({ok:true,id:i},201,o,e)}
+if(p==='/api/players'&&m==='POST'){let q=await guard(r,e,o);if(q)return q;let b=await r.json();b.overall_tier=calculatedTier(b);let err=valid(b);if(err)return J({error:err},400,o,e);if(await duplicatePlayer(e,b.name.trim()))return J({error:duplicateNameError},409,o,e);let i=uuid(),t=now();await e.DB.batch([e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(i,b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,0,t,t),snap(e,{...b,id:i}),audit(e,await session(r,e),'created_player',{...b,id:i,name:b.name.trim()})]);return J({ok:true,id:i},201,o,e)}
 let assessmentDelete=p.match(/^\/api\/players\/([^/]+)\/assessments\/(\d+)$/);
 if(assessmentDelete&&m==='DELETE'){
 let denied=await guard(r,e,o);if(denied)return denied;let id=decodeURIComponent(assessmentDelete[1]),assessmentId=Number(assessmentDelete[2]),pl=await e.DB.prepare('SELECT * FROM players WHERE id=?').bind(id).first();if(!pl)return J({error:'Player not found.'},404,o,e);if(pl.locked)return J({error:'This player is locked. Unlock it before deleting assessments.'},423,o,e);
