@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-<title id="title">A tier — second-place badge</title>
-<desc id="desc">Peach A-tier second-place crest with two mirrored wings per side and no crown. Transparent background.</desc>
+<title id="title">A tier — first-place champion badge</title>
+<desc id="desc">Peach A-tier first-place crest with a three-point crown and broad mirrored faceted wings. Transparent background.</desc>
 <defs>
  <linearGradient id="gold" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#ffdbbf"/><stop offset=".45" stop-color="#fca475"/><stop offset="1" stop-color="#975332"/></linearGradient>
  <linearGradient id="core" x2="0" y2="1"><stop stop-color="#293446"/><stop offset="1" stop-color="#101722"/></linearGradient>
@@ -8,11 +8,12 @@
 </defs>
 <g id="champion-wings" stroke="#101722" stroke-width="3" stroke-linejoin="round">
  <g id="left-champion-wing">
-  <path fill="url(#gold)" d="M158 184 98 142 37 60 45 174 81 223 56 205 76 276 112 303 193 305Z"/>
+  <path fill="url(#gold)" d="M158 184 98 142 37 60 45 174 81 223 56 205 76 276 112 303 90 298 117 353 179 380 193 305Z"/>
   <path fill="#ffc49e" stroke="none" d="m37 60 61 82 60 42-14 21-65-54Z"/>
   <path fill="#b86a43" stroke="none" d="m45 174 68 64 50 24-10 25-72-64Z"/>
+  <path fill="#ffb58a" stroke="none" d="m76 276 60 32 34 9-6 26-52-40Z"/>
   <path fill="none" d="m59 127 29 64 59 43m-71 14 40 32 42 17"/>
-  <path fill="none" d="M158 184 98 142 37 60 45 174 81 223 56 205 76 276 112 303 193 305Z"/>
+  <path fill="none" d="M158 184 98 142 37 60 45 174 81 223 56 205 76 276 112 303 90 298 117 353 179 380 193 305Z"/>
  </g>
  <use href="#left-champion-wing" transform="translate(512 0) scale(-1 1)"/>
 </g>
@@ -32,4 +33,5 @@
  <path fill="#be754c" opacity=".55" d="m280 176 59 172h-15l-57-172Z"/>
 </g>
 <path fill="#fca475" d="m256 365 9 12-9 12-9-12Z"/>
+
 </svg>

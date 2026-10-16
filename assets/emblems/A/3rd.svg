@@ -6,7 +6,16 @@
  <linearGradient id="core" x2="0" y2="1"><stop stop-color="#293446"/><stop offset="1" stop-color="#101722"/></linearGradient>
  <linearGradient id="letter" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#ffe8d7"/><stop offset="1" stop-color="#fca475"/></linearGradient>
 </defs>
-
+<g id="champion-wings" stroke="#101722" stroke-width="3" stroke-linejoin="round">
+ <g id="left-champion-wing">
+  <path fill="url(#gold)" d="M158 184 98 142 37 60 45 174 81 223 56 205 76 276 112 303 193 305Z"/>
+  <path fill="#ffc49e" stroke="none" d="m37 60 61 82 60 42-14 21-65-54Z"/>
+  <path fill="#b86a43" stroke="none" d="m45 174 68 64 50 24-10 25-72-64Z"/>
+  <path fill="none" d="m59 127 29 64 59 43m-71 14 40 32 42 17"/>
+  <path fill="none" d="M158 184 98 142 37 60 45 174 81 223 56 205 76 276 112 303 193 305Z"/>
+ </g>
+ <use href="#left-champion-wing" transform="translate(512 0) scale(-1 1)"/>
+</g>
 <g id="shield">
  <path fill="url(#gold)" stroke="#101722" stroke-width="3" stroke-linejoin="round" d="m256 63 143 108-31 171-112 105-112-105-31-171Z"/>
  <path fill="#ffc49e" d="m256 63 143 108-28 12-115-87-115 87-28-12Z"/>

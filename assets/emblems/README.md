@@ -21,3 +21,5 @@ For example: `S/1st.svg`, `A/2nd.svg`, or `F/3rd.svg`.
 Use a transparent background and a consistent SVG `viewBox` so the emblems can be displayed at matching sizes. Keep artwork within the viewBox and use self-contained SVGs without scripts or external assets.
 
 S and A tier placements use their SVG files on public player cards. B through F keep the existing placement text until their artwork is ready.
+
+S and A now replace the main-page tier circle at the top right of each card. Top-three players use their placement SVG; other players use `default.svg`. Separate placement emblems beneath the class are omitted for S and A. Player assessment pages retain the standard tier circles.

@@ -65,10 +65,19 @@ function placementBadge(player,placement){
  if(![1,2,3].includes(placement))return '';
  const ordinal=['1st','2nd','3rd'][placement-1],rank=player.overall_tier;
  const title=`Ranked #${placement} in ${rank} tier by total points; ties use the earlier assessment date.`;
- if(rank==='S'||rank==='A')return `<img class="tier-emblem" src="./assets/emblems/${rank}/${ordinal}.svg" alt="${ordinal} place in ${rank} tier" title="${esc(title)}" width="44" height="44" loading="lazy" decoding="async">`;
+ if(rank==='S'||rank==='A')return '';
  return `<span class="tier-placement ${esc(rank)}" title="${esc(title)}">${ordinal}</span>`;
 }
-function card(p,placement=null){return `<a class="player-card" href="#/player/${encodeURIComponent(p.id)}"><div class="card card-surface"><div class="player-head"><div><div class="name">${esc(p.name)}</div><div class="class">${esc(p.class_name||'Class undetermined')}</div></div><span class="badge ${p.overall_tier}">${p.overall_tier}</span></div><div class="player-placement-slot">${placementBadge(p,placement)}</div>${A.map(([k,s])=>`<div class="barrow"><span>${s}</span><div class="bar"><i style="width:${Math.min(100,(p[k]||0)/3)}%"></i></div><b>${tier(p[k])}</b></div>`).join('')}<div class="meta">${A.reduce((n,[k])=>n+Number(p[k]||0),0)} / 1800 · ${date(p.assessed_at)}</div></div></a>`}
+function cardTierBadge(player,placement){
+ const rank=player.overall_tier;
+ if(rank==='S'||rank==='A'){
+  const ordinal=[1,2,3].includes(placement)?['1st','2nd','3rd'][placement-1]:null;
+  const label=ordinal?`${rank} tier, ${ordinal} place`:`${rank} tier`;
+  return `<img class="tier-emblem" src="./assets/emblems/${rank}/${ordinal||'default'}.svg" alt="${esc(label)}" title="${esc(label)}" width="44" height="44" loading="lazy" decoding="async">`;
+ }
+ return `<span class="badge ${esc(rank)}">${esc(rank)}</span>`;
+}
+function card(p,placement=null){return `<a class="player-card" href="#/player/${encodeURIComponent(p.id)}"><div class="card card-surface"><div class="player-head"><div><div class="name">${esc(p.name)}</div><div class="class">${esc(p.class_name||'Class undetermined')}</div></div>${cardTierBadge(p,placement)}</div><div class="player-placement-slot">${placementBadge(p,placement)}</div>${A.map(([k,s])=>`<div class="barrow"><span>${s}</span><div class="bar"><i style="width:${Math.min(100,(p[k]||0)/3)}%"></i></div><b>${tier(p[k])}</b></div>`).join('')}<div class="meta">${A.reduce((n,[k])=>n+Number(p[k]||0),0)} / 1800 · ${date(p.assessed_at)}</div></div></a>`}
 
 function assessmentOrder(history){return history.slice().sort((a,b)=>String(b.assessed_at).localeCompare(String(a.assessed_at))||Number(b.id)-Number(a.id))}
 function assessmentDetails(h){let sum=Number(h.total??A.reduce((n,[key])=>n+Number(h[key]||0),0));return `<div class="assessment-heading"><strong>${esc(date(h.assessed_at))}</strong><span class="badge ${esc(h.overall_tier)}">${esc(h.overall_tier)}</span></div><div class="meta">Overall tier ${esc(h.overall_tier)} ? Assessment #${Number(h.id)}</div><p class="meta assessment-author">Assessed by: <strong>${esc(h.assessed_by||'Not recorded')}</strong></p><table class="table"><thead><tr><th>Attribute</th><th>Points</th><th>Tier</th></tr></thead><tbody>${A.map(([key,,label])=>`<tr><td>${label}</td><td>${Number(h[key]||0)} / 300</td><td><b>${tier(h[key])}</b></td></tr>`).join('')}</tbody></table><div class="stats"><div class="stat"><b>${sum}</b><span>Total / 1800</span></div><div class="stat"><b>${(sum/6).toFixed(2)}</b><span>Average / 300</span></div><div class="stat"><b>${tier(sum/6)}</b><span>Attribute Tier</span></div></div>${h.notes?`<h3>Notes</h3><p class="assessment-notes">${esc(h.notes)}</p>`:''}`}
