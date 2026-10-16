@@ -226,14 +226,6 @@ main{overflow-anchor:none}
 @media(max-width:800px){.classes-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:540px){.classes-grid{grid-template-columns:1fr}.class-dialog{padding:16px}.class-video-placeholder{padding:12px}.class-video-placeholder>span{font-size:24px;margin-bottom:6px}}
 
-/* Each overall tier starts a separate card grid. */
-.player-tier-groups{min-width:0;display:flex;flex-direction:column;gap:32px}
-.player-tier-group{min-width:0}
-.tier-divider{display:flex;align-items:center;gap:14px;margin:0 0 20px}
-.tier-divider h2{display:flex;align-items:center;gap:10px;flex-shrink:0;margin:0;font-size:21px;line-height:1.2}
-.tier-divider hr{flex:1;min-width:0;margin:0;border:0;border-top:2px solid var(--line)}
-.tier-divider hr:first-child{flex:0 0 28px}
-
 .assessment-tier-picker{min-width:0;margin:0;padding:0;border:0}
 .assessment-tier-picker legend{margin-bottom:6px;padding:0;color:var(--muted);font-size:12px;font-weight:bold}
 .assessment-tier-buttons{display:flex;flex-wrap:wrap;gap:10px;padding-bottom:4px}
