@@ -102,6 +102,12 @@ test('shared drafts stay private, enforce ownership and revisions, and publish o
   assert.equal(env.db.prepare('SELECT total FROM assessments').get().total,1123);
   assert.equal(env.db.prepare('SELECT overall_tier FROM players').get().overall_tier,'B');
   assert.equal(env.db.prepare('SELECT overall_tier FROM assessments').get().overall_tier,'B');
+  let profile=await (await request('/api/players/'+id,'GET',null,null)).json();
+  assert.equal(profile.history[0].assessed_by,'author');
+  assert.equal((await request('/api/players/'+id,'PUT',{...data,assessment_id:profile.history[0].id},'viewer')).status,200);
+  profile=await (await request('/api/players/'+id,'GET',null,null)).json();
+  assert.equal(profile.history[0].assessed_by,'viewer');
+
   assert.equal((await request('/api/player-drafts/'+id+'/push','POST',{revision:2})).status,404);
   const discard=await (await request('/api/player-drafts','POST',{data:{name:'Discard me'}})).json();
   assert.equal((await request('/api/player-drafts/'+discard.id,'DELETE',{revision:1},'viewer')).status,403);
