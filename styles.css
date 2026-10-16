@@ -267,5 +267,7 @@ select:focus-visible{border-color:#285b88}
 .player-tier-index [data-public-player-tier="F"]{--tier-filter-colour:#a36cfd}
 
 .player-card .class{margin-bottom:8px}
-.player-placement-slot{min-height:30px;margin-bottom:12px}
+.player-placement-slot{display:flex;align-items:center;min-height:44px;margin-bottom:12px}
 .tier-placement{display:inline-flex;align-items:center;padding:2px 8px;border:1px solid #42433f35;border-radius:999px;background:var(--p2);background:color-mix(in srgb,var(--p) 92%,var(--line));color:var(--muted);font-size:11px;font-weight:900;line-height:15px;white-space:nowrap}
+
+.tier-emblem{display:block;width:44px;height:44px;object-fit:contain}

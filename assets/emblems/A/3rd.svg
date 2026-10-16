@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">A tier — second-place badge</title>
+<desc id="desc">Peach A-tier second-place crest with two mirrored wings per side and no crown. Transparent background.</desc>
+<defs>
+ <linearGradient id="gold" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#ffdbbf"/><stop offset=".45" stop-color="#fca475"/><stop offset="1" stop-color="#975332"/></linearGradient>
+ <linearGradient id="core" x2="0" y2="1"><stop stop-color="#293446"/><stop offset="1" stop-color="#101722"/></linearGradient>
+ <linearGradient id="letter" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#ffe8d7"/><stop offset="1" stop-color="#fca475"/></linearGradient>
+</defs>
+
+<g id="shield">
+ <path fill="url(#gold)" stroke="#101722" stroke-width="3" stroke-linejoin="round" d="m256 63 143 108-31 171-112 105-112-105-31-171Z"/>
+ <path fill="#ffc49e" d="m256 63 143 108-28 12-115-87-115 87-28-12Z"/>
+ <path fill="#b86a43" d="m256 447 112-105 31-171-28 12-28 147-87 83Z"/>
+ <path fill="#b86a43" d="m256 447-112-105-31-171 28 12 28 147 87 83Z"/>
+ <path fill="url(#core)" stroke="#925b3d" stroke-width="3" d="m256 107 106 80-25 139-81 78-81-78-25-139Z"/>
+ <path fill="none" stroke="#fca475" stroke-opacity=".35" stroke-width="2" d="m256 126 89 67-22 125-67 65-67-65-22-125Z"/>
+ <path id="shield-outline" fill="none" stroke="#101722" stroke-width="3" stroke-linejoin="round" d="m256 63 143 108-31 171-112 105-112-105-31-171Z"/>
+</g>
+<g id="a-mark">
+ <path id="a-shape-shadow" fill="#060c15" opacity=".65" transform="translate(0 7)" fill-rule="evenodd" d="M232 176h48l59 172h-44l-12-38h-54l-12 38h-44Zm24 43-17 56h34Z"/>
+ <path id="a-shape" fill="url(#letter)" fill-rule="evenodd" d="M232 176h48l59 172h-44l-12-38h-54l-12 38h-44Zm24 43-17 56h34Z"/>
+ <path fill="#fff2e8" opacity=".55" d="m232 176-59 172h16l57-172Z"/>
+ <path fill="#be754c" opacity=".55" d="m280 176 59 172h-15l-57-172Z"/>
+</g>
+<path fill="#fca475" d="m256 365 9 12-9 12-9-12Z"/>
+</svg>
