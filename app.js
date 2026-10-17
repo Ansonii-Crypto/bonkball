@@ -65,12 +65,12 @@ function placementBadge(player,placement){
  if(![1,2,3].includes(placement))return '';
  const ordinal=['1st','2nd','3rd'][placement-1],rank=player.overall_tier;
  const title=`Ranked #${placement} in ${rank} tier by total points; ties use the earlier assessment date.`;
- if(rank==='S'||rank==='A'||rank==='B')return '';
+ if(/^[SABCDEF]$/.test(rank))return '';
  return `<span class="tier-placement ${esc(rank)}" title="${esc(title)}">${ordinal}</span>`;
 }
 function cardTierBadge(player,placement){
  const rank=player.overall_tier;
- if(rank==='S'||rank==='A'||rank==='B'){
+ if(/^[SABCDEF]$/.test(rank)){
   const ordinal=[1,2,3].includes(placement)?['1st','2nd','3rd'][placement-1]:null;
   const label=ordinal?`${rank} tier, ${ordinal} place`:`${rank} tier`;
   return `<img class="tier-emblem" src="./assets/emblems/${rank}/${ordinal||'default'}.svg" alt="${esc(label)}" title="${esc(label)}" width="44" height="44" loading="lazy" decoding="async">`;

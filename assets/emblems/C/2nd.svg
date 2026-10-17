@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">C tier — first-place badge</title>
+<desc id="desc">C-tier first-place badge in #7c905f with a faceted C. Transparent background.</desc>
+<defs>
+ <linearGradient id="gold" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#bdc9ab"/><stop offset=".45" stop-color="#7c905f"/><stop offset="1" stop-color="#414f30"/></linearGradient>
+ <linearGradient id="core" x2="0" y2="1"><stop stop-color="#293446"/><stop offset="1" stop-color="#101722"/></linearGradient>
+ <linearGradient id="letter" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#dbe3d0"/><stop offset="1" stop-color="#7c905f"/></linearGradient>
+</defs>
+<g id="champion-wings" stroke="#101722" stroke-width="3" stroke-linejoin="round">
+ <g id="left-champion-wing">
+  <path fill="url(#gold)" d="M158 184 98 142 37 60 45 174 81 223 56 205 76 276 112 303 90 298 117 353 179 380 193 305Z"/>
+  <path fill="#a7b991" stroke="none" d="m37 60 61 82 60 42-14 21-65-54Z"/>
+  <path fill="#5c6e44" stroke="none" d="m45 174 68 64 50 24-10 25-72-64Z"/>
+  <path fill="#a4b68c" stroke="none" d="m76 276 60 32 34 9-6 26-52-40Z"/>
+  <path fill="none" d="m59 127 29 64 59 43m-71 14 40 32 42 17"/>
+  <path fill="none" d="M158 184 98 142 37 60 45 174 81 223 56 205 76 276 112 303 90 298 117 353 179 380 193 305Z"/>
+ </g>
+ <use href="#left-champion-wing" transform="translate(512 0) scale(-1 1)"/>
+</g>
+<g id="shield">
+ <path fill="url(#gold)" stroke="#101722" stroke-width="3" stroke-linejoin="round" d="m256 63 143 108-31 171-112 105-112-105-31-171Z"/>
+ <path fill="#a7b991" d="m256 63 143 108-28 12-115-87-115 87-28-12Z"/>
+ <path fill="#5c6e44" d="m256 447 112-105 31-171-28 12-28 147-87 83Z"/>
+ <path fill="#5c6e44" d="m256 447-112-105-31-171 28 12 28 147 87 83Z"/>
+ <path fill="url(#core)" stroke="#4d5c3a" stroke-width="3" d="m256 107 106 80-25 139-81 78-81-78-25-139Z"/>
+ <path fill="none" stroke="#7c905f" stroke-opacity=".35" stroke-width="2" d="m256 126 89 67-22 125-67 65-67-65-22-125Z"/>
+ <path id="shield-outline" fill="none" stroke="#101722" stroke-width="3" stroke-linejoin="round" d="m256 63 143 108-31 171-112 105-112-105-31-171Z"/>
+</g>
+<g id="c-mark">
+ <path fill="#060c15" opacity=".65" transform="translate(0 7)" d="M321 176H216L181 211V313L216 348H321V310H234L222 298V226L234 214H321Z"/>
+ <path fill="url(#letter)" d="M321 176H216L181 211V313L216 348H321V310H234L222 298V226L234 214H321Z"/>
+ <path fill="#eaf0e2" opacity=".5" d="M216 176h105v10H222l-31 31v91l-10 5V211Z"/>
+</g>
+<path fill="#7c905f" d="m256 365 9 12-9 12-9-12Z"/>
+</svg>

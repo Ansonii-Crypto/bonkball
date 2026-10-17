@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">F tier — third-place badge</title>
+<desc id="desc">F-tier third-place badge in #a36cfd with a faceted F. Transparent background.</desc>
+<defs>
+ <linearGradient id="gold" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#d6bdfe"/><stop offset=".45" stop-color="#a36cfd"/><stop offset="1" stop-color="#5a3b8b"/></linearGradient>
+ <linearGradient id="core" x2="0" y2="1"><stop stop-color="#293446"/><stop offset="1" stop-color="#101722"/></linearGradient>
+ <linearGradient id="letter" x1="0.5" y1="0" x2="0.5" y2="1"><stop stop-color="#e8dafe"/><stop offset="1" stop-color="#a36cfd"/></linearGradient>
+</defs>
+<g id="shield">
+ <path fill="url(#gold)" stroke="#101722" stroke-width="3" stroke-linejoin="round" d="m256 63 143 108-31 171-112 105-112-105-31-171Z"/>
+ <path fill="#bf98fe" d="m256 63 143 108-28 12-115-87-115 87-28-12Z"/>
+ <path fill="#7a51be" d="m256 447 112-105 31-171-28 12-28 147-87 83Z"/>
+ <path fill="#7a51be" d="m256 447-112-105-31-171 28 12 28 147 87 83Z"/>
+ <path fill="url(#core)" stroke="#52367e" stroke-width="3" d="m256 107 106 80-25 139-81 78-81-78-25-139Z"/>
+ <path fill="none" stroke="#a36cfd" stroke-opacity=".35" stroke-width="2" d="m256 126 89 67-22 125-67 65-67-65-22-125Z"/>
+ <path id="shield-outline" fill="none" stroke="#101722" stroke-width="3" stroke-linejoin="round" d="m256 63 143 108-31 171-112 105-112-105-31-171Z"/>
+</g>
+<g id="f-mark">
+ <path fill="#060c15" opacity=".65" transform="translate(0 7)" fill-rule="evenodd" d="M188 176H321V214H230V247H307V285H230V348H188Z"/>
+ <path fill="url(#letter)" fill-rule="evenodd" d="M188 176H321V214H230V247H307V285H230V348H188Z"/>
+</g>
+<path fill="#a36cfd" d="m256 365 9 12-9 12-9-12Z"/>
+</svg>
