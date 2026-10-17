@@ -23,3 +23,5 @@ Use a transparent background and a consistent SVG `viewBox` so the emblems can b
 S and A tier placements use their SVG files on public player cards. B through F keep the existing placement text until their artwork is ready.
 
 S and A now replace the main-page tier circle at the top right of each card. Top-three players use their placement SVG; other players use `default.svg`. Separate placement emblems beneath the class are omitted for S and A. Player assessment pages retain the standard tier circles.
+
+B tier also uses placement/default SVGs on main-page cards. Player assessment details and history entries use the default S, A, or B emblem for the assessment tier, without applying current leaderboard placement to historical assessments.
