@@ -11,6 +11,11 @@ async function session(r,e){let t=getCookie(r);if(!t)return null;return e.DB.pre
 async function isAuth(r,e){return !!(await session(r,e))?.id}
 async function guard(r,e,o){if(!await isAuth(r,e))return J({error:'Select an administrator account first.'},401,o,e)}
 function audit(e,user,action,player=null,assessmentId=null,account=null,onlyChanged=false){return e.DB.prepare(`INSERT INTO activity_logs(actor_id,actor_name,action,player_id,player_name,assessed_at,assessment_id,account_name,created_at) ${onlyChanged?'SELECT ':'VALUES('}?,?,?,?,?,?,COALESCE(?,(SELECT MAX(id) FROM assessments WHERE player_id=?)),?,?${onlyChanged?' WHERE changes() > 0':')'}`).bind(user.id,user.name,action,player?.id||null,player?.name||null,player?.assessed_at||null,assessmentId,player?.id||null,account,now())}
+function assessmentEditAudit(e,user,p,id,assessmentId){
+ const fields=['assessed_at','overall_tier',...A,'class_name','playstyle','strengths','weaknesses'];
+ const before=fields.map(key=>`'${key}',a.${key}`).join(','),after=fields.map(key=>`'${key}',?`).join(',');
+ return e.DB.prepare(`INSERT INTO activity_logs(actor_id,actor_name,action,player_id,player_name,assessed_at,assessment_id,created_at,assessment_changes) SELECT ?,?,'updated_player',?,?,?,a.id,?,json_object('before',json_object(${before}),'after',json_object(${after})) FROM assessments a WHERE a.player_id=? AND a.id=? AND changes()>0`).bind(user.id,user.name,id,p.name.trim(),p.assessed_at,now(),...fields.map(key=>A.includes(key)?Number(p[key]):p[key]||''),id,assessmentId);
+}
 function accountAuditAfterChange(e,user,action,accountName){return e.DB.prepare('INSERT INTO activity_logs(actor_id,actor_name,action,account_name,created_at) SELECT ?,?,?,?,? WHERE changes() > 0').bind(user.id,user.name,action,accountName,now())}
 async function playerAudit(r,e,action,pl){let user=await session(r,e),assessment=await e.DB.prepare('SELECT id FROM assessments WHERE player_id=? ORDER BY id DESC LIMIT 1').bind(pl.id).first();return audit(e,user,action,pl,assessment?.id||null)}
 const total=p=>A.reduce((s,k)=>s+Number(p[k]||0),0);
@@ -154,8 +159,8 @@ let b=await r.json(),err=valid(b);if(err)return J({error:err},400,o,e);if(await 
 let target=null;if(!b.new_assessment){target=b.assessment_id?await e.DB.prepare('SELECT id FROM assessments WHERE player_id=? AND id=?').bind(id,Number(b.assessment_id)).first():await e.DB.prepare('SELECT id FROM assessments WHERE player_id=? ORDER BY assessed_at DESC,id DESC LIMIT 1').bind(id).first();if(!target)return J({error:'Assessment not found.'},404,o,e)}
 let user=await session(r,e),assessmentWrite=target?e.DB.prepare('UPDATE assessments SET assessed_at=?,overall_tier=?,control=?,execution=?,defending=?,reaction_time=?,chemistry=?,game_sense=?,total=?,class_name=?,playstyle=?,strengths=?,weaknesses=? WHERE player_id=? AND id=? AND changes()>0').bind(b.assessed_at,b.overall_tier,...A.map(k=>Number(b[k])),total(b),b.class_name||'',b.playstyle||'',b.strengths||'',b.weaknesses||'',id,target.id):snap(e,{...b,id},true);
 let result=await e.DB.batch([
-e.DB.prepare('UPDATE players SET name=?,updated_at=? WHERE id=? AND locked=0').bind(b.name.trim(),now(),id),assessmentWrite,
-audit(e,user,'updated_player',{...b,id,name:b.name.trim()},target?.id||null,null,true),
+e.DB.prepare('UPDATE players SET name=?,updated_at=? WHERE id=? AND locked=0').bind(b.name.trim(),now(),id),
+...(target?[assessmentEditAudit(e,user,b,id,target.id),assessmentWrite]:[assessmentWrite,audit(e,user,'updated_player',{...b,id,name:b.name.trim()},null,null,true)]),
 e.DB.prepare(`UPDATE players SET (assessed_at,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,class_name,playstyle,strengths,weaknesses)=(SELECT assessed_at,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,COALESCE(class_name,''),COALESCE(playstyle,''),COALESCE(strengths,''),COALESCE(weaknesses,'') FROM assessments WHERE player_id=? ORDER BY assessed_at DESC,id DESC LIMIT 1) WHERE id=? AND changes()>0`).bind(id,id)
 ]);if(!result[0].meta?.changes)return J({error:'This player was locked. Your changes were not saved.'},423,o,e);return J({ok:true,assessment_id:target?.id||null},200,o,e)}
 if(m==='DELETE'){let user=await session(r,e),assessment=await e.DB.prepare('SELECT MAX(id) AS id FROM assessments WHERE player_id=?').bind(id).first();let result=await e.DB.batch([

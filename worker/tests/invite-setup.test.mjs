@@ -107,6 +107,16 @@ test('shared drafts stay private, enforce ownership and revisions, and publish o
   assert.equal((await request('/api/players/'+id,'PUT',{...data,assessment_id:profile.history[0].id},'viewer')).status,200);
   profile=await (await request('/api/players/'+id,'GET',null,null)).json();
   assert.equal(profile.history[0].assessed_by,'viewer');
+  const editLog=env.db.prepare("SELECT * FROM activity_logs WHERE action='updated_player' ORDER BY id DESC LIMIT 1").get();
+  const changes=JSON.parse(editLog.assessment_changes);
+  assert.equal(changes.before.overall_tier,'B');
+  assert.equal(changes.after.overall_tier,'A');
+  assert.equal(changes.before.control,123);
+  assert.equal(changes.after.control,123);
+  assert.equal((await request('/api/players/'+id,'PUT',{...data,control:250,new_assessment:true},'viewer')).status,200);
+  assert.equal(env.db.prepare("SELECT assessment_changes FROM activity_logs WHERE action='updated_player' ORDER BY id DESC LIMIT 1").get().assessment_changes,null);
+  assert.equal(env.db.prepare('SELECT assessment_changes FROM activity_logs WHERE id=?').get(editLog.id).assessment_changes,editLog.assessment_changes);
+
 
   assert.equal((await request('/api/player-drafts/'+id+'/push','POST',{revision:2})).status,404);
   const discard=await (await request('/api/player-drafts','POST',{data:{name:'Discard me'}})).json();

@@ -196,3 +196,5 @@ Publish `drafts.js` alongside the updated `app.js`, `index.html`, and `styles.cs
 Drafts show Continue for every admin. Other admins get a read-only preview. Authors can use Discard draft with confirmation to delete a draft; this checks its revision and never removes a published player. An unsaved form can also be discarded without creating a server draft.
 
 New-player drafts calculate their tier from the sum of the six attributes divided by six, using the existing F?S thresholds. The preview updates as statistics change and the API recalculates the tier when publishing. Existing-player assessment editing retains manual tier selection.
+
+Assessment edit logs now capture before/after fields for edits to existing assessments. Apply worker/migrations/0009_assessment_log_changes.sql once before deploying the Worker. Only these recorded edits show More information; older logs and newly created assessments do not. Only one log detail panel opens at a time.

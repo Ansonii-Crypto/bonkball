@@ -271,3 +271,13 @@ select:focus-visible{border-color:#285b88}
 .tier-placement{display:inline-flex;align-items:center;padding:2px 8px;border:1px solid #42433f35;border-radius:999px;background:var(--p2);background:color-mix(in srgb,var(--p) 92%,var(--line));color:var(--muted);font-size:11px;font-weight:900;line-height:15px;white-space:nowrap}
 
 .tier-emblem{display:block;width:44px;height:44px;object-fit:contain;flex-shrink:0}
+
+.log-entry{border-bottom:2px dashed #d5cebc}
+.log-entry:last-child{border-bottom:0}
+.log-entry>.listrow{border-bottom:0}
+.log-change-panel{padding:0 0 18px}
+.log-change-panel[hidden]{display:none}
+.log-change-list{margin:0;padding:14px;background:var(--p2);border-radius:6px}
+.log-change-list>div+div{margin-top:12px}
+.log-change-list dt{font-weight:bold;margin-bottom:4px}
+.log-change-list dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
