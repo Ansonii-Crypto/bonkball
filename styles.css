@@ -281,3 +281,5 @@ select:focus-visible{border-color:#285b88}
 .log-change-list>div+div{margin-top:12px}
 .log-change-list dt{font-weight:bold;margin-bottom:4px}
 .log-change-list dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+
+#managedAccounts .invitation-code{display:block;flex:1 1 0;min-width:0;padding:12px 13px;border:2px solid #777b6f;border-radius:5px;background:#fffdf5;color:var(--text);font:inherit;overflow-wrap:anywhere;user-select:text}

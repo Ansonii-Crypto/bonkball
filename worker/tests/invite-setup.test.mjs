@@ -128,3 +128,26 @@ test('shared drafts stay private, enforce ownership and revisions, and publish o
 
   env.db.close();
 });
+
+
+test('creating another admin never moves an unused invitation between accounts',async()=>{
+ const env=environment();
+ env.db.exec("INSERT INTO admin_credentials(account_id,code_hash) VALUES('primary-zimble','test-only')");
+ const token='primary-token',digest=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))).toString('hex');
+ env.db.prepare('INSERT INTO admin_sessions VALUES(?,?,?)').run(digest,Date.now()+600000,'primary-zimble');
+ const request=(path,body=null)=>worker.fetch(new Request('https://api.test'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token},...(body?{body:JSON.stringify(body)}:{})}),env);
+ const first=await (await request('/api/accounts',{name:'Zulu'})).json();
+ const second=await (await request('/api/accounts',{name:'Alpha'})).json();
+ const {accounts}=await (await request('/api/accounts')).json();
+ const zulu=accounts.find(a=>a.name==='Zulu'),alpha=accounts.find(a=>a.name==='Alpha');
+ assert.notEqual(zulu.id,alpha.id);assert.notEqual(first.invitation,second.invitation);
+ assert.equal(zulu.invitation,first.invitation);assert.equal(alpha.invitation,second.invitation);
+ const login=(id,code,new_code)=>request('/api/login',{account_id:id,code,...(new_code?{new_code,confirm_code:new_code}:{})});
+ assert.equal((await login(alpha.id,first.invitation)).status,401);
+ assert.equal((await login(zulu.id,second.invitation)).status,401);
+ assert.equal((await login(zulu.id,first.invitation,'123456')).status,200);
+ const after=await (await request('/api/accounts')).json();
+ assert.equal(after.accounts.find(a=>a.id===zulu.id).invitation,undefined);
+ assert.equal(after.accounts.find(a=>a.id===alpha.id).invitation,second.invitation);
+ env.db.close();
+});
