@@ -11,8 +11,8 @@ h1{margin:0 0 28px;font-size:clamp(40px,8vw,88px);line-height:1.1;letter-spacing
 .brand{display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:14px;font-weight:900}
 .brand span{font-size:11px;letter-spacing:.14em;font-weight:700;opacity:.45}
 nav{display:flex;justify-content:center;flex-wrap:wrap;gap:14px}
-nav a{padding:13px 28px;border:1px solid #253c3e28;border-radius:8px;background:#ffffff60;font-weight:bold;font-size:16px;transition:background .15s,border-color .15s}
-nav a:hover,nav a[aria-current="page"]{background:#253c3e0c;border-color:#253c3e60}
+.homepage-header nav a{padding:13px 28px;border:1px solid #253c3e28;border-radius:8px;background:#ffffff60;font-weight:bold;font-size:16px;transition:background .15s,border-color .15s}
+.homepage-header nav a:hover,.homepage-header nav a[aria-current="page"]{background:#253c3e0c;border-color:#253c3e60}
 a:focus-visible{outline:2px solid #285b88;outline-offset:5px}
 .homepage-body{min-height:100vh;min-height:100dvh}
 @media(prefers-reduced-motion:reduce){.hero-content{transform:none;opacity:1;will-change:auto}nav a{transition:none}}
