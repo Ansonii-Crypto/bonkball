@@ -107,6 +107,15 @@ test('shared drafts stay private, enforce ownership and revisions, and publish o
   assert.equal((await request('/api/players/'+id,'PUT',{...data,assessment_id:profile.history[0].id},'viewer')).status,200);
   profile=await (await request('/api/players/'+id,'GET',null,null)).json();
   assert.equal(profile.history[0].assessed_by,'viewer');
+  const feed=await request('/api/recent-assessments','GET',null,null);
+  assert.equal(feed.status,200);
+  const {updates}=await feed.json();
+  assert.equal(updates.length,1);assert.equal(updates[0].id,id);
+  assert.equal(updates[0].assessed_by,'viewer');
+  assert.equal(updates[0].assessment_changes,undefined);
+  assert.equal(updates[0].actor_id,undefined);
+  assert.equal(updates[0].total,1123);
+
   const editLog=env.db.prepare("SELECT * FROM activity_logs WHERE action='updated_player' ORDER BY id DESC LIMIT 1").get();
   const changes=JSON.parse(editLog.assessment_changes);
   assert.equal(changes.before.overall_tier,'B');

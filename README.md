@@ -198,3 +198,6 @@ Drafts show Continue for every admin. Other admins get a read-only preview. Auth
 New-player drafts calculate their tier from the sum of the six attributes divided by six, using the existing F?S thresholds. The preview updates as statistics change and the API recalculates the tier when publishing. Existing-player assessment editing retains manual tier selection.
 
 Assessment edit logs now capture before/after fields for edits to existing assessments. Apply worker/migrations/0009_assessment_log_changes.sql once before deploying the Worker. Only these recorded edits show More information; older logs and newly created assessments do not. Only one log detail panel opens at a time.
+
+## Homepage
+The default route (#/) is now the football landing page. #/players retains the existing player browser, #/classes shows classes, and #/admin opens the existing account/admin tools. The homepage uses homepage.css, homepage.js, and football-background.js, with live data from config.js and /api/recent-assessments. No local preview mocks are shipped. Tier badges use the coloured letter bubbles throughout. The public recent endpoint returns only public player details and author/timestamp summaries; drafts and detailed admin logs remain protected.

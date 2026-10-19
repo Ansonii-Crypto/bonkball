@@ -98,6 +98,10 @@ let count=await e.DB.prepare('SELECT COUNT(*) AS total FROM activity_logs'+where
 let rows=await e.DB.prepare('SELECT * FROM activity_logs'+where+' ORDER BY id DESC LIMIT ? OFFSET ?').bind(...args,size,(page-1)*size).all();
 let actors=await e.DB.prepare('SELECT actor_id AS id,MAX(actor_name) AS name FROM activity_logs GROUP BY actor_id ORDER BY name COLLATE NOCASE').all(),actions=await e.DB.prepare('SELECT DISTINCT action FROM activity_logs ORDER BY action').all();
 return J({logs:rows.results,total,page,page_size:size,total_pages:pages,administrators:actors.results,actions:actions.results.map(x=>x.action)},200,o,e)}
+if(p==='/api/recent-assessments'&&m==='GET'){
+ const rows=await e.DB.prepare(`SELECT p.id,p.name,p.class_name,p.overall_tier,(p.control+p.execution+p.defending+p.reaction_time+p.chemistry+p.game_sense) AS total,l.created_at AS changed_at,l.actor_name AS assessed_by,CASE WHEN l.action='created_player' THEN 'added' ELSE 'updated' END AS kind FROM players p JOIN activity_logs l ON l.id=(SELECT MAX(recent.id) FROM activity_logs recent WHERE recent.player_id=p.id AND recent.action IN ('created_player','updated_player') AND EXISTS(SELECT 1 FROM assessments a WHERE a.id=recent.assessment_id AND a.player_id=p.id)) ORDER BY l.created_at DESC,l.id DESC LIMIT 20`).all();
+ return J({updates:rows.results},200,o,e);
+}
 if(p==='/api/player-drafts'||p.startsWith('/api/player-drafts/')){
  const user=await session(r,e);if(!user?.id)return J({error:'Sign in to view player drafts.'},401,o,e);
  const match=p.match(/^\/api\/player-drafts\/([^/]+)(\/push)?$/),id=match?decodeURIComponent(match[1]):null;

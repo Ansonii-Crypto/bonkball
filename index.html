@@ -16,4 +16,107 @@
   <meta name="twitter:title" content="Bonk Critic | Bonk.io Football Player Ratings">
   <meta name="twitter:description" content="Explore player ratings, strengths, weaknesses, and assessment history for the Bonk.io football community.">
   <link rel="stylesheet" href="./styles.css">
-</head><body><header><a href="#/" class="brand">PLAYER DATABASE</a><nav><a href="#/">Players</a><a href="#/classes">Classes</a><a href="#/admin">Admin</a></nav></header><div id="scrollArea"><main id="view"></main><footer>Player Database · Public records are read-only</footer></div><div id="toast"></div><script src="./config.js"></script><script src="./classes.js"></script><script src="./drafts.js"></script><script src="./app.js"></script></body></html>
+  <link rel="stylesheet" href="./homepage.css">
+</head>
+<body class="homepage-shell site-shell">
+  <div id="scrollArea">
+    <header class="homepage-header" aria-label="Homepage header">
+      <canvas id="headerPitch" aria-hidden="true"></canvas>
+      <a href="#/admin" class="admins-link" data-page="admin">Admin</a>
+      <div class="hero-content">
+        <h1><a href="#/" class="brand" aria-label="Bonk Critic homepage">BONK CRITIC </a></h1>
+        <nav aria-label="Main navigation">
+          <a href="#/players" data-page="players">Players</a>
+          <a href="#/classes" data-page="classes">Classes</a>
+        </nav>
+      </div>
+      <div class="pitch-team-selector" role="group" aria-label="Choose the player to control">
+        <button type="button" class="pitch-team-button blue" data-pitch-team="blue" aria-label="Control blue player" aria-pressed="true"></button>
+        <button type="button" class="pitch-team-button red" data-pitch-team="red" aria-label="Control red player" aria-pressed="false"></button>
+      </div>
+      <a class="homepage-scroll-cue" href="#homepage" aria-label="Scroll to homepage content">Scroll to explore <span aria-hidden="true">&#8595;</span></a>
+    </header>
+    <main id="homepage" class="homepage-body" aria-label="About Bonk Critic">
+      <div class="homepage-information">
+        <div class="information-intro">
+          <p class="section-kicker">ABOUT BONK CRITIC</p>
+          <h2>A closer look at how players play.</h2>
+          <p>Browse Bonk.io football players, compare their attributes, and learn about the different classes.</p>
+        </div>
+        <div class="information-grid">
+          <article><span class="section-kicker">01 / PLAYERS</span><h3>See the whole picture</h3><p>Each player has six attributes scored out of 300. Compare their strengths, check their overall tier, and look back through their assessments.</p></article>
+          <article><span class="section-kicker">02 / CLASSES</span><h3>Different ways to play</h3><p>Classes describe a player's approach to the game, from holding space as a Bulwark to trying the unexpected as a Renegade.</p></article>
+          <article><span class="section-kicker">03 / ASSESSMENTS</span><h3>Follow their progress</h3><p>Assessment history shows how ratings change over time, alongside the notes and admin who recorded them.</p></article>
+        </div>
+      </div>
+      <section class="recent-assessments" aria-labelledby="recentAssessmentsTitle">
+        <div class="recent-assessments-inner">
+          <div class="recent-assessments-heading">
+            <p class="section-kicker">LATEST UPDATES</p>
+            <h2 id="recentAssessmentsTitle">RECENT ASSESSMENTS</h2>
+          </div>
+          <div class="recent-assessments-description">
+            <h3>What has changed?</h3>
+            <p>Find players with a new assessment or changes to an existing one. Each entry shows who recorded the update, when it happened, and a short note about the changes.</p>
+            <p>Each player appears once, with their most recent update first. Choose Review stats to see their attributes and assessment history.</p>
+            <p class="recent-assessments-intro">Hover or focus the feed to pause automatic scrolling, then scroll through it at your own pace.</p>
+          </div>
+          <div class="recent-assessments-feed">
+            <div id="recentAssessmentList" class="recent-assessment-list"></div>
+            <p class="recent-activity-note">Latest recorded player updates.</p>
+          </div>
+        </div>
+      </section>
+      <section class="classes-overview" aria-labelledby="classesOverviewTitle">
+        <div class="classes-overview-inner">
+          <div class="classes-overview-intro">
+            <p class="section-kicker">PLAYSTYLE ARCHETYPES</p>
+            <h2 id="classesOverviewTitle">A LOOK AT CLASSES</h2>
+            <p>A rating tells you how a player scores. A class describes how they play. Some hold their ground, some keep moving, and others try something you did not see coming.</p>
+            <a class="classes-overview-link" href="#/classes" data-page="classes">Explore the classes <span aria-hidden="true">&#8599;</span></a>
+          </div>
+          <div class="class-snapshot-grid">
+            <article><h3>Weaver</h3><p>Uses close control and changes of direction to get around opponents.</p></article>
+            <article><h3>Bulwark</h3><p>Holds their ground to protect possession and block dangerous routes.</p></article>
+            <article><h3>Catalyst</h3><p>Starts moves and puts opponents under pressure to make something happen.</p></article>
+            <article><h3>Tactician</h3><p>Reads the play and gets into position before the next touch.</p></article>
+            <article><h3>Opportunist</h3><p>Takes advantage of loose balls, mistakes, and brief openings.</p></article>
+            <article><h3>Dynamo</h3><p>Keeps moving and stays involved from one challenge to the next.</p></article>
+            <article><h3>Renegade</h3><p>Tries unexpected touches and approaches to create their own openings.</p></article>
+          </div>
+        </div>
+      </section>
+      <section id="behind-the-scenes" class="behind-the-scenes" aria-labelledby="behindScenesTitle">
+        <div class="behind-scenes-inner">
+          <p class="section-kicker">THE PEOPLE BEHIND THE RATINGS</p>
+          <h2 id="behindScenesTitle">BEHIND THE SCENES</h2>
+          <p class="behind-scenes-lead">Admins put the assessments together, keep player records up to date, and add notes to explain the ratings.</p>
+          <div class="information-grid">
+            <article><h3>Putting an assessment together</h3><p>Admins rate six attributes and describe the player's style, strengths, and areas to improve. A new player's overall tier is calculated from their average attribute score.</p></article>
+            <article><h3>Working on drafts</h3><p>A draft can be saved before it is ready. Other admins can review it, while its author can continue editing and push it to the public player list.</p></article>
+            <article><h3>Keeping a record</h3><p>Assessments include the admin who saved them. The admin activity log records changes to existing assessments, including the previous and updated values.</p></article>
+          </div>
+          <p class="behind-scenes-note">Administrator tools are available through the Admin link.</p>
+        </div>
+      </section>
+    </main>
+    <footer class="homepage-footer">
+      <div class="homepage-footer-inner">
+        <div><strong>BONK CRITIC</strong><p>Talk players, ratings, and Bonk.io football with the community.</p></div>
+        <div class="footer-discord"><button type="button" disabled aria-describedby="discordComingSoon">Join our Discord</button><span id="discordComingSoon">Invite coming soon</span></div>
+      </div>
+    </footer>
+  </div>
+
+  <section class="page-surface" id="appSurface" aria-label="Site content" inert>
+    <header class="destination-navigation"><a href="#/" class="brand" aria-label="Bonk Critic homepage">BONK CRITIC</a><nav aria-label="Main navigation"><a href="#/players">Players</a><a href="#/classes">Classes</a><a href="#/admin">Admin</a></nav></header>
+    <div class="surface-scroll"><main id="view"></main></div>
+  </section>
+  <div id="toast"></div>
+  <script src="./config.js"></script>
+  <script src="./classes.js"></script>
+  <script src="./drafts.js"></script>
+  <script src="./app.js"></script>
+  <script src="./homepage.js"></script>
+  <script src="./football-background.js"></script>
+</body></html>
