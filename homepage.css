@@ -164,3 +164,6 @@ body.homepage-shell{display:block;height:100vh;height:100dvh}
 .homepage-header h1 .brand{font-size:inherit}
 
 .site-shell #toast{z-index:30}
+
+/* Hold and drag to play on the header; body scrolling and navigation remain available. */
+.homepage-header{touch-action:pinch-zoom}
