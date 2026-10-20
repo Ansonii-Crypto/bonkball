@@ -12,9 +12,14 @@ test('touch controls capture one pointer, release cleanly and leave navigation t
  const event=(id,x,y,control=false)=>({pointerId:id,pointerType:'touch',button:0,clientX:x,clientY:y,target:{closest:()=>control?{}:null},preventDefault(){this.prevented=true}});
  const down=event(1,200,300);listeners.pointerdown(down);
  assert.equal(down.prevented,true);assert.equal(capture.has(1),true);
+ assert.equal(vm.runInContext('pitchPressed',ctx),false);
  const move=event(1,600,500);listeners.pointermove(move);
  assert.equal(vm.runInContext('pitchPointer.x',ctx),600);
  listeners.pointermove(event(2,900,600));assert.equal(vm.runInContext('pitchPointer.x',ctx),600);
+ listeners.pointerdown(event(2,900,600));assert.equal(vm.runInContext('pitchPressed',ctx),true);assert.equal(capture.has(2),true);
+ listeners.pointermove(event(2,800,200));assert.equal(vm.runInContext('pitchPointer.x',ctx),600);
+ windowListeners.pointerup(event(2,800,200));assert.equal(vm.runInContext('pitchPressed',ctx),false);assert.equal(vm.runInContext('pitchTouchId',ctx),1);assert.equal(capture.has(2),false);
+
  listeners.pointerleave();assert.equal(vm.runInContext('pitchTouchId',ctx),1);
  windowListeners.pointerup(event(1,600,500));assert.equal(vm.runInContext('pitchPointer',ctx),null);assert.equal(vm.runInContext('pitchPressed',ctx),false);assert.equal(capture.size,0);
  const button=event(3,200,300,true);listeners.pointerdown(button);assert.equal(button.prevented,undefined);assert.equal(capture.size,0);

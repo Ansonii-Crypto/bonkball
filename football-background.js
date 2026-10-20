@@ -154,40 +154,50 @@ new ResizeObserver(()=>{
  pitchContext.setTransform(ratio,0,0,ratio,0,0);refreshPitch();
 }).observe(pitchHeader);
 new IntersectionObserver(entries=>{pitchVisible=entries[0].isIntersecting;refreshPitch()}).observe(pitchHeader);
-let pitchTouchId=null;
+let pitchTouchId=null,pitchHeavyTouchId=null;
 function setPitchPointer(event){
  const rect=pitchHeader.getBoundingClientRect();
  pitchPointer={x:Math.max(0,Math.min(rect.width,event.clientX-rect.left)),y:Math.max(0,Math.min(rect.height,event.clientY-rect.top))};
 }
 function releasePitchPlayer(){
- const captured=pitchTouchId;pitchTouchId=null;pitchPointer=null;pitchPressed=false;
- if(captured!==null&&pitchHeader.hasPointerCapture(captured))pitchHeader.releasePointerCapture(captured);
+ const captured=[pitchTouchId,pitchHeavyTouchId];pitchTouchId=null;pitchHeavyTouchId=null;pitchPointer=null;pitchPressed=false;
+ for(const id of captured)if(id!==null&&pitchHeader.hasPointerCapture(id))pitchHeader.releasePointerCapture(id);
  refreshPitch();
 }
 pitchHeader.addEventListener('pointermove',event=>{
- if(pitchTouchId!==null){if(event.pointerId!==pitchTouchId)return;event.preventDefault();setPitchPointer(event);if(pitchMotion.matches)refreshPitch();return}
+ if(pitchTouchId!==null){if(event.pointerId!==pitchTouchId){if(event.pointerId===pitchHeavyTouchId)event.preventDefault();return}event.preventDefault();setPitchPointer(event);if(pitchMotion.matches)refreshPitch();return}
  if(event.pointerType==='mouse')setPitchPointer(event);
 },{passive:false});
 pitchHeader.addEventListener('pointerleave',()=>{if(pitchTouchId===null)releasePitchPlayer()});
 window.addEventListener('blur',releasePitchPlayer);
 pitchHeader.addEventListener('pointerdown',event=>{
- if(event.button!==0||event.target.closest('a,button,input,select,textarea')||pitchTouchId!==null)return;
+ if(event.button!==0||event.target.closest('a,button,input,select,textarea'))return;
  if(event.pointerType==='touch'||event.pointerType==='pen'){
-  pitchTouchId=event.pointerId;setPitchPointer(event);pitchHeader.setPointerCapture(event.pointerId);event.preventDefault();
- }else if(!pitchPointer)setPitchPointer(event);
- pitchPressed=true;refreshPitch();
+  event.preventDefault();
+  if(pitchTouchId===null){pitchTouchId=event.pointerId;setPitchPointer(event);pitchPressed=false;pitchHeader.setPointerCapture(event.pointerId)}
+  else if(pitchHeavyTouchId===null&&event.pointerId!==pitchTouchId){pitchHeavyTouchId=event.pointerId;pitchPressed=true;pitchHeader.setPointerCapture(event.pointerId)}
+ }else{if(pitchTouchId!==null)return;if(!pitchPointer)setPitchPointer(event);pitchPressed=true}
+ refreshPitch();
 },{passive:false});
+function endPitchTouch(event){
+ if(event.pointerId===pitchTouchId){releasePitchPlayer();return}
+ if(event.pointerId===pitchHeavyTouchId){
+  const id=pitchHeavyTouchId;pitchHeavyTouchId=null;pitchPressed=false;
+  if(pitchHeader.hasPointerCapture(id))pitchHeader.releasePointerCapture(id);
+  refreshPitch();
+ }
+}
 window.addEventListener('pointerup',event=>{
- if(pitchTouchId!==null){if(event.pointerId===pitchTouchId)releasePitchPlayer();return}
+ if(pitchTouchId!==null||pitchHeavyTouchId!==null){endPitchTouch(event);return}
  if(!pitchPressed)return;pitchPressed=false;refreshPitch();
 });
-pitchHeader.addEventListener('pointercancel',event=>{if(pitchTouchId===null||event.pointerId===pitchTouchId)releasePitchPlayer()});
-pitchHeader.addEventListener('lostpointercapture',event=>{if(event.pointerId===pitchTouchId)releasePitchPlayer()});
+pitchHeader.addEventListener('pointercancel',endPitchTouch);
+pitchHeader.addEventListener('lostpointercapture',endPitchTouch);
 pitchMotion.addEventListener('change',refreshPitch);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)releasePitchPlayer();refreshPitch()});
 
 document.querySelectorAll('[data-pitch-team]').forEach(button=>button.addEventListener('click',()=>{
- pitchSelectedTeam=button.dataset.pitchTeam;pitchPressed=false;
+ pitchSelectedTeam=button.dataset.pitchTeam;pitchPressed=pitchHeavyTouchId!==null;
  document.querySelectorAll('[data-pitch-team]').forEach(item=>item.setAttribute('aria-pressed',item.dataset.pitchTeam===pitchSelectedTeam));
  refreshPitch();
 }));

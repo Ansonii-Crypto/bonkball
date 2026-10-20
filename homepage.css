@@ -166,4 +166,4 @@ body.homepage-shell{display:block;height:100vh;height:100dvh}
 .site-shell #toast{z-index:30}
 
 /* Hold and drag to play on the header; body scrolling and navigation remain available. */
-.homepage-header{touch-action:pinch-zoom}
+.homepage-header{touch-action:none}
