@@ -43,10 +43,35 @@ test('account dropdown displays an escaped initial and username, and offers prof
 });
 
 
-test('own profile opens the matching public assessment history, or shows an empty state',async()=>{
- const ui=fixture({user:{username:'PLAYER',id:'7'}});let opened=null;
- ui.context.api=async path=>path==='/api/session'?{user:{username:'PLAYER',id:'7'}}:{players:[{id:'record-7',name:'Player'}]};
- ui.context.player=async id=>{opened=id};await ui.context.ownProfile();assert.equal(opened,'record-7');
- opened=null;ui.context.api=async path=>path==='/api/session'?{user:{username:'PLAYER',id:'7'}}:{players:[{id:'other',name:'Other'}]};
- await ui.context.ownProfile();assert.equal(opened,null);assert.match(ui.html,/No assessments have been recorded/);
+test('own profile loads matching assessments into a dedicated profile, not the player view',async()=>{
+ const ui=fixture({user:{username:'PLAYER',id:'7'}});let loaded=null;
+ ui.context.api=async path=>{if(path==='/api/session')return {user:{username:'PLAYER',id:'7'}};if(path==='/api/players')return {players:[{id:'record-7',name:'Player'}]};assert.equal(path,'/api/players/record-7');return {history:[{id:1}]}};
+ ui.context.renderOwnProfile=(user,record,history)=>{loaded={user,record,history}};
+ ui.context.player=()=>assert.fail('Must not open the public player assessment view');
+ await ui.context.ownProfile();assert.equal(loaded.record.id,'record-7');assert.equal(loaded.history.length,1);
+});
+
+test('profiles without assessments omit the assessments heading and controls',()=>{
+ const ui=fixture({user:null});ui.context.renderOwnProfile({username:'Player',id:'7'},null,[]);
+ assert.match(ui.html,/Player/);assert.match(ui.html,/No assessments have been recorded/);
+ assert.doesNotMatch(ui.html,/ownAssessmentsTitle|profileAssessmentSort|profileAssessmentAdmin/);
+});
+
+test('assessment order respects timestamps, explicit sort choice, and admin filter',()=>{
+ const ui=fixture({user:null}),history=[{id:1,assessed_at:'2026-10-22T10:00:00Z',assessed_by:'Zed'},{id:2,assessed_at:'2026-10-22T11:00:00Z',assessed_by:'Amy'},{id:3,assessed_at:'2026-10-23',assessed_by:'Zed'}];
+ const ids=(order,author='')=>Array.from(ui.context.profileAssessmentOrder(history,order,author),h=>h.id);
+ assert.deepEqual(ids('newest'),[3,2,1]);assert.deepEqual(ids('oldest'),[1,2,3]);
+ assert.deepEqual(ids('admin-asc'),[2,3,1]);assert.deepEqual(ids('admin-desc'),[3,1,2]);
+ assert.deepEqual(ids('oldest','Zed'),[1,3]);assert.deepEqual(ids('newest','Absent'),[]);
+ assert.deepEqual(history.map(h=>h.id),[1,2,3]);
+});
+
+test('assessment controls redraw the card order and reset horizontal scrolling',()=>{
+ const ui=fixture({user:null}),sort={value:'newest'},author={value:''},cards={scrollLeft:100},count={};
+ ui.context.document.querySelector=key=>({'#profileAssessmentSort':sort,'#profileAssessmentAdmin':author,'#profileAssessmentCards':cards,'#profileAssessmentCount':count}[key]);
+ ui.context.profileAssessmentCard=h=>`<article>${h.id}</article>`;
+ ui.context.renderOwnProfile({username:'Player',id:'7'},{class_name:'Weaver',overall_tier:'S'},[{id:1,assessed_at:'2026-10-20',assessed_by:'Amy'},{id:2,assessed_at:'2026-10-21',assessed_by:'Zed'}]);
+ assert.match(ui.html,/>Assessments<\/h2>/);assert.equal(cards.innerHTML,'<article>2</article><article>1</article>');
+ sort.value='oldest';sort.onchange();assert.equal(cards.innerHTML,'<article>1</article><article>2</article>');
+ author.value='Amy';author.onchange();assert.equal(cards.innerHTML,'<article>1</article>');assert.equal(count.textContent,'1 assessment');assert.equal(cards.scrollLeft,0);
 });

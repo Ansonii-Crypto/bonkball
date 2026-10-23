@@ -31,6 +31,27 @@ async function accountPage({admin:wantAdmin=false}={}){
   finally{password.value='';button.disabled=false}
  };
 }
+function profileAssessmentOrder(history,order='newest',author=''){
+ const byDate=(a,b)=>{const left=Date.parse(a.assessed_at),right=Date.parse(b.assessed_at);if(Number.isFinite(left)!==Number.isFinite(right))return Number.isFinite(left)?-1:1;return (Number.isFinite(left)?right-left:0)||Number(b.id)-Number(a.id)};
+ const byAuthor=(a,b)=>String(a.assessed_by||'Not recorded').localeCompare(String(b.assessed_by||'Not recorded'),undefined,{sensitivity:'base'});
+ return history.filter(h=>!author||(h.assessed_by||'Not recorded')===author).sort((a,b)=>{
+  if(order==='oldest'){const left=Date.parse(a.assessed_at),right=Date.parse(b.assessed_at);if(Number.isFinite(left)!==Number.isFinite(right))return Number.isFinite(left)?-1:1;return -byDate(a,b)}
+  if(order==='admin-asc'||order==='admin-desc')return (order==='admin-asc'?byAuthor(a,b):-byAuthor(a,b))||byDate(a,b);
+  return byDate(a,b);
+ });
+}
+function profileAssessmentCard(h){
+ const instant=String(h.assessed_at||''),timestamp=instant.includes('T')&&Number.isFinite(Date.parse(instant))?new Date(instant).toLocaleString():date(instant);
+ return `<article class="card profile-assessment-card"><div class="assessment-heading"><strong>${esc(timestamp)}</strong>${cardTierBadge({overall_tier:h.overall_tier})}</div><p class="meta">Assessment #${Number(h.id)} ? ${esc(h.class_name||'Class undetermined')}</p><p>Assessed by <strong>${esc(h.assessed_by||'Not recorded')}</strong></p><p><strong>${Number(h.total||0)} / 1800</strong></p><details class="profile-assessment-details"><summary>View assessment</summary>${assessmentDetails(h)}${assessmentPlaystyle(h)}</details></article>`;
+}
+function renderOwnProfile(user,record,history){
+ const authors=[...new Set(history.map(h=>h.assessed_by||'Not recorded'))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+ render(`<section class="own-profile"><div class="hero own-profile-heading"><div class="account-profile"><span class="account-avatar" aria-hidden="true">${esc(Array.from(user.username)[0].toUpperCase())}</span><h1>${esc(user.username)}</h1></div><p>Bonk account ID: ${esc(user.id)}</p>${record?`<p>${esc(record.class_name||'Class undetermined')} ? Overall ${esc(record.overall_tier)}</p>`:''}</div>${history.length?`<section aria-labelledby="ownAssessmentsTitle"><div class="profile-assessments-toolbar"><h2 id="ownAssessmentsTitle">Assessments</h2><div class="profile-assessments-controls"><label>Order<select id="profileAssessmentSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="admin-asc">Admin: A?Z</option><option value="admin-desc">Admin: Z?A</option></select></label><label>Admin<select id="profileAssessmentAdmin"><option value="">All admins</option>${authors.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join('')}</select></label></div></div><p class="meta" id="profileAssessmentCount" role="status"></p><div class="profile-assessments-grid" id="profileAssessmentCards" tabindex="0" aria-label="Assessments, scroll horizontally for more"></div></section>`:'<p>No assessments have been recorded for this username yet.</p>'}</section>`);
+ if(!history.length)return;
+ const sort=document.querySelector('#profileAssessmentSort'),author=document.querySelector('#profileAssessmentAdmin'),cards=document.querySelector('#profileAssessmentCards'),count=document.querySelector('#profileAssessmentCount');
+ function draw(){const visible=profileAssessmentOrder(history,sort.value,author.value);cards.innerHTML=visible.map(profileAssessmentCard).join('')||'<p>No assessments match this admin.</p>';cards.scrollLeft=0;count.textContent=`${visible.length} ${visible.length===1?'assessment':'assessments'}`}
+ sort.onchange=draw;author.onchange=draw;draw();
+}
 async function ownProfile(){
  render('<div class="login"><h1>Profile</h1><p>Loading your assessments?</p></div>');
  const panel=V.firstElementChild;
@@ -42,8 +63,8 @@ async function ownProfile(){
   // An exact username match is for displaying public history only, never permissions.
   const name=state.user.username.trim().toLowerCase();
   const record=players.find(player=>String(player.name).trim().toLowerCase()===name);
-  if(record){await player(record.id);return}
-  render(`<div class="login"><div class="account-profile"><span class="account-avatar" aria-hidden="true">${esc(Array.from(state.user.username)[0].toUpperCase())}</span><h1>${esc(state.user.username)}</h1></div><p>No assessments have been recorded for this username yet.</p><a href="#/players">Browse players</a></div>`);
+  let history=[];if(record){const result=await api('/api/players/'+encodeURIComponent(record.id));if(!panel.isConnected)return;history=result.history||[]}
+  renderOwnProfile(state.user,record,history);
  }catch(error){if(panel.isConnected)render(`<div class="login"><h1>Profile unavailable</h1><p class="error">${esc(error.message)}</p><a href="#/account">Back to account</a></div>`)}
 }
 function updateAccountMenus(user,adminAccount=null){
