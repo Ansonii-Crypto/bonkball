@@ -2,13 +2,10 @@
 .own-profile .own-profile-heading h1{margin:0}.own-profile .own-profile-heading .account-avatar{width:60px;height:60px;font-size:30px}
 .own-profile .profile-assessments-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin:30px 0 12px}
 .own-profile .profile-assessments-toolbar h2{font-size:17px;margin:0;text-align:left}
-.own-profile .profile-assessments-controls{display:flex;gap:12px;flex-wrap:wrap}.own-profile .profile-assessments-controls label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:bold}
-.own-profile .profile-assessments-controls select{width:auto;max-width:230px;margin:0;background:var(--p);border:2px solid var(--line);border-radius:5px;padding:8px 12px;font:inherit}
-.own-profile .profile-assessments-controls select:focus{outline:none}.own-profile .profile-assessments-controls select:focus-visible{outline:2px solid #3577ac;outline-offset:3px}
 .own-profile .profile-assessments-grid{display:flex;align-items:flex-start;gap:20px;overflow-x:auto;padding:3px 3px 14px;scroll-snap-type:x proximity}
 .own-profile .profile-assessment-card{flex:0 0 min(360px,90%);min-width:0;scroll-snap-align:start}.own-profile .profile-assessment-card>p{margin:12px 0}
 .own-profile .profile-assessment-details{border-top:1px solid #42433f30;padding-top:12px}.own-profile .profile-assessment-details>summary{font-size:14px;font-weight:bold;cursor:pointer}.own-profile .profile-assessment-details[open]>summary{margin-bottom:20px}
-@media(max-width:540px){.own-profile .own-profile-heading .account-avatar{width:44px;height:44px;font-size:24px}.own-profile .profile-assessments-controls{width:100%}.own-profile .profile-assessments-controls label{flex:1;flex-direction:column;align-items:flex-start}.own-profile .profile-assessments-controls select{width:100%;max-width:100%;font-size:12px}}
+@media(max-width:540px){.own-profile .own-profile-heading .account-avatar{width:44px;height:44px;font-size:24px}}
 
 .own-profile .profile-assessment-details>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;padding:6px 0}
 .own-profile .profile-assessment-details>summary::-webkit-details-marker{display:none}
@@ -20,3 +17,19 @@
 .own-profile .profile-assessment-note{margin-top:18px}.own-profile .profile-assessment-note h3{margin:0 0 6px;font-size:14px}.own-profile .profile-assessment-note p{margin:0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
 
 .player-profile-link:hover,.player-profile-link:focus-visible{text-decoration:underline;text-underline-offset:.12em;text-decoration-thickness:.06em}
+
+.own-profile .profile-assessment-filter{position:relative;z-index:4;max-width:100%;font-size:14px}
+.own-profile .profile-assessment-filter>summary{padding:10px 34px 10px 14px;border:2px solid var(--line);border-radius:5px;background:var(--p);cursor:pointer;list-style:none;position:relative;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:bold}
+.own-profile .profile-assessment-filter>summary:after{content:'\25be';position:absolute;right:12px}
+.own-profile .profile-assessment-filter summary::-webkit-details-marker{display:none}
+.own-profile .profile-filter-panel,.own-profile .profile-admin-options{position:absolute;background:var(--p);border:2px solid var(--line);border-radius:6px;padding:6px;box-shadow:0 5px 12px #0002;min-width:190px}
+.own-profile .profile-filter-panel{right:0;top:calc(100% + 6px)}
+.own-profile .profile-filter-panel button,.own-profile .profile-admin-submenu>summary{display:flex;align-items:center;justify-content:space-between;width:100%;margin:0;padding:10px 12px;border:0;border-radius:4px;background:transparent;box-shadow:none;color:inherit;text-align:left;font:inherit;cursor:pointer;list-style:none;transform:none}
+.own-profile .profile-filter-panel button:hover,.own-profile .profile-admin-submenu>summary:hover{background:#42433f10}
+.own-profile .profile-filter-panel button[aria-pressed="true"]{background:#65954b22;font-weight:bold}
+.own-profile .profile-admin-submenu{position:relative;border-top:1px solid #42433f30;margin-top:5px;padding-top:5px}
+.own-profile .profile-admin-options{right:calc(100% + 6px);top:-2px;max-width:240px}
+.own-profile .profile-admin-options:after{content:'';position:absolute;left:100%;top:0;bottom:0;width:8px}
+.own-profile .profile-admin-options button{overflow-wrap:anywhere}
+.own-profile .profile-assessment-filter summary:focus-visible,.own-profile .profile-filter-panel button:focus-visible{outline:2px solid #3577ac;outline-offset:2px}
+@media(max-width:540px){.own-profile .profile-admin-options{position:static;min-width:0;max-width:none;margin:4px 0 0 10px;padding:0 0 0 5px;border:0;border-left:2px solid #42433f30;border-radius:0;box-shadow:none}.own-profile .profile-admin-options:after{display:none}}

@@ -54,7 +54,7 @@ test('own profile loads matching assessments into a dedicated profile, not the p
 test('profiles without assessments omit the assessments heading and controls',()=>{
  const ui=fixture({user:null});ui.context.renderOwnProfile({username:'Player',id:'7'},null,[]);
  assert.match(ui.html,/Player/);assert.match(ui.html,/No assessments have been recorded/);
- assert.doesNotMatch(ui.html,/ownAssessmentsTitle|profileAssessmentSort|profileAssessmentAdmin/);
+ assert.doesNotMatch(ui.html,/ownAssessmentsTitle|profileAssessmentFilter/);
 });
 
 test('assessment order respects timestamps, explicit sort choice, and admin filter',()=>{
@@ -66,15 +66,27 @@ test('assessment order respects timestamps, explicit sort choice, and admin filt
  assert.deepEqual(history.map(h=>h.id),[1,2,3]);
 });
 
-test('assessment controls redraw the card order and reset horizontal scrolling',()=>{
- const ui=fixture({user:null}),sort={value:'newest'},author={value:''},cards={scrollLeft:100},count={};
- ui.context.document.querySelector=key=>({'#profileAssessmentSort':sort,'#profileAssessmentAdmin':author,'#profileAssessmentCards':cards,'#profileAssessmentCount':count}[key]);
+test('single profile dropdown sorts, filters and keeps the admin flyout interactive',()=>{
+ const ui=fixture({user:null}),cards={scrollLeft:100},count={},label={focus(){}};
+ const makeButton=dataset=>({dataset,setAttribute(key,value){this[key]=value},focus(){}});
+ const orders=['newest','oldest','admin-asc','admin-desc'].map(value=>makeButton({profileOrder:value}));
+ const authors=['','Amy','Zed'].map(value=>makeButton({profileAuthor:value}));
+ const submenuEvents={},events={},submenu={open:false,addEventListener(key,fn){submenuEvents[key]=fn},contains:()=>false,querySelector:key=>key==='button'?authors[0]:label};
+ const filter={open:true,querySelector:()=>submenu,querySelectorAll:key=>key==='[data-profile-order]'?orders:authors,addEventListener(key,fn){events[key]=fn}};
+ ui.context.document.querySelector=key=>({'#profileAssessmentFilter':filter,'#profileAssessmentFilterLabel':label,'#profileAssessmentCards':cards,'#profileAssessmentCount':count}[key]);
  ui.context.profileAssessmentCard=h=>`<article>${h.id}</article>`;
  ui.context.renderOwnProfile({username:'Player',id:'7'},{class_name:'Weaver',overall_tier:'S'},[{id:1,assessed_at:'2026-10-20',assessed_by:'Amy'},{id:2,assessed_at:'2026-10-21',assessed_by:'Zed'}]);
- assert.doesNotMatch(ui.html.split('ownAssessmentsTitle')[0],/Weaver/);assert.match(ui.html,/>Assessments<\/h2>/);assert.equal(cards.innerHTML,'<article>2</article><article>1</article>');
- sort.value='oldest';sort.onchange();assert.equal(cards.innerHTML,'<article>1</article><article>2</article>');
- author.value='Amy';author.onchange();assert.equal(cards.innerHTML,'<article>1</article>');assert.equal(count.textContent,'1 assessment');assert.equal(cards.scrollLeft,0);
+ assert.doesNotMatch(ui.html,/<select/);assert.match(ui.html,/profile-admin-submenu/);
+ assert.equal(cards.innerHTML,'<article>2</article><article>1</article>');
+ orders[1].onclick();assert.equal(cards.innerHTML,'<article>1</article><article>2</article>');assert.equal(filter.open,false);
+ authors[1].onclick();assert.equal(cards.innerHTML,'<article>1</article>');assert.equal(count.textContent,'1 assessment');assert.equal(label.textContent,'Oldest first - Amy');assert.equal(cards.scrollLeft,0);
+ authors[0].onclick();assert.equal(cards.innerHTML,'<article>1</article><article>2</article>');
+ submenuEvents.pointerenter({pointerType:'mouse'});assert.equal(submenu.open,true);
+ submenuEvents.pointerleave({pointerType:'mouse'});assert.equal(submenu.open,false);
+ submenuEvents.keydown({key:'ArrowRight',preventDefault(){}});assert.equal(submenu.open,true);
+ events.keydown({key:'Escape',preventDefault(){},stopPropagation(){}});assert.equal(submenu.open,false);
 });
+
 
 
 test('expanded profile cards show attributes and notes without repeating assessment metadata',()=>{
