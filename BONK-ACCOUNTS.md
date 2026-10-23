@@ -1,6 +1,6 @@
 # Bonk accounts and administrator access
 
-The homepage and content navigation now show **Account**. Signed-in users see their Bonk username, an avatar containing its first character, and a dropdown with **Profile**, **Admin tools** for eligible accounts, and **Log out** in red. Profile shows the signed-in user and assessment cards for the player name matching their verified Bonk username (ignoring case and surrounding spaces). Cards run left to right, newest first by default. The order dropdown supports newest, oldest, and admin name ordering; an admin filter limits the cards to that assessor. Each card expands to show its ratings and notes. Profiles without assessments omit the assessment heading and controls. Dates use the stored assessment date/time, with assessment IDs breaking ties. This display match does not grant permissions. Skins are not fetched yet. The login page is `#/account`; administrator tools remain at `#/admin` and are linked from Behind the Scenes.
+The homepage and content navigation now show **Account**. Signed-in users see their Bonk username, an avatar containing its first character, and a dropdown with **Profile**, **Admin tools** for eligible accounts, and **Log out** in red. Profile shows the signed-in user and assessment cards for the player name matching their verified Bonk username (ignoring case and surrounding spaces). Cards run left to right, newest first by default. The order dropdown supports newest, oldest, and admin name ordering; an admin filter limits the cards to that assessor. Each card expands to show its ratings and notes. Profiles without assessments omit the assessment heading and controls. Dates use the stored assessment date/time, with assessment IDs breaking ties. This display match does not grant permissions. The active skin from the Bonk login response replaces the initial avatar when available. Its code is stored as cosmetic data and displayed via Bonk Leagues? SVG image renderer; no credentials or tokens go to that renderer. Image failures fall back to the username initial. Sign out and back in to refresh a changed skin. The login page is `#/account`; administrator tools remain at `#/admin` and are linked from Behind the Scenes.
 
 Everyone starts with a regular user session. Only a linked administrator can unlock admin tools using that account's existing six-digit personal code. No default code exists. Ordinary accounts are never offered personal-code setup. Admin elevation lasts 30 minutes; the normal account session lasts 24 hours. Lock admin access ends elevation while retaining the Bonk login. Log out removes both privileges for that browser session.
 
@@ -48,3 +48,16 @@ node --test worker/tests/*.test.mjs
 ```
 
 Tests cover provider failures, forged browser identities, account-bound invitations, code checks, primary-only operations, regular user access, session expiry, switching accounts, logout, and the account UI. Upstream responses are mocked; no real account credentials are included in tests.
+
+
+## Active avatar update
+
+Apply `worker/migrations/0011_account_avatars.sql` before deploying the updated Worker:
+
+```powershell
+# From worker/
+npx wrangler d1 execute player-database --remote --file=./migrations/0011_account_avatars.sql
+npx wrangler deploy
+```
+
+Publish the updated account.js and account.css, then sign out and sign in again. Existing sessions without a saved skin show the initial until the next successful Bonk login. The selected slot is read from activeAvatarNumber (or its lowercase spelling); zero maps to the first slot, following Bonk Leagues' skin manager. Invalid or missing skin data never blocks login. The display URL uses only the selected avatar code, encoded as a query parameter. This feature does not update your skin on Bonk.

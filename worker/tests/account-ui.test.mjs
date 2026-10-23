@@ -83,3 +83,12 @@ test('expanded profile cards show attributes and notes without repeating assessm
  assert.equal((html.match(/Assessed by/g)||[]).length,1);assert.equal((html.match(/2026-10-23/g)||[]).length,1);
  assert.match(html,/profile-attribute-list/);assert.match(html,/230/);assert.match(html,/Close &lt;control&gt;/);assert.match(html,/Hide assessment/);
 });
+
+
+test('avatar renders an encoded skin URL with a persistent initial fallback',()=>{
+ const ui=fixture({user:null});
+ assert.doesNotMatch(ui.context.accountAvatar({username:'Player'}),/<img/);
+ const html=ui.context.accountAvatar({username:'Player',avatar_code:'skin&code="test"'});
+ assert.match(html,/account-avatar-initial/);assert.match(html,/data-bonk-avatar/);assert.match(html,/skin%26code%3D%22test%22/);assert.match(html,/referrerpolicy="no-referrer"/);
+ assert.doesNotMatch(html,/onerror=|onload=/);
+});

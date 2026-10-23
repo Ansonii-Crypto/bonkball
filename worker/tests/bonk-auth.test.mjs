@@ -120,3 +120,17 @@ test('Bonk redirects fail closed without following or forwarding credentials',as
  globalThis.fetch=async(url,options)=>{calls++;assert.equal(url,'https://bonk2.io/scripts/login_legacy.php');assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://example.com/other'}})};
  try{const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});assert.equal(response.status,502);assert.match((await response.json()).error,/redirected/);assert.equal(calls,1);assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0)}finally{globalThis.fetch=original;env.db.close()}
 });
+
+
+test('active avatar comes only from the verified login response and persists across session refresh',async()=>withProvider(async set=>{
+ const env=environment();
+ set({r:'success',id:100,username:'Verified',token:'bonk-secret',activeAvatarNumber:3,avatar1:'other-skin',avatar3:'active-skin'});
+ const user=await signIn(env,{avatar_code:'browser-forgery',activeAvatarNumber:1});
+ let state=await (await request(env,'/api/session',null,{user})).json();assert.equal(state.user.avatar_code,'active-skin');
+ assert.equal(env.db.prepare('SELECT skin_code FROM bonk_account_avatars').get().skin_code,'active-skin');
+ set({r:'success',id:100,username:'Verified',token:'bonk-secret',activeAvatarNumber:0,avatar1:'first-slot'});
+ const next=await signIn(env);state=await (await request(env,'/api/session',null,{user:next})).json();assert.equal(state.user.avatar_code,'first-slot');
+ set({r:'success',id:100,username:'Verified',token:'bonk-secret',activeAvatarNumber:99,avatar1:'not-selected'});
+ const fallback=await signIn(env);state=await (await request(env,'/api/session',null,{user:fallback})).json();assert.equal(state.user.avatar_code,null);
+ env.db.close();
+}));

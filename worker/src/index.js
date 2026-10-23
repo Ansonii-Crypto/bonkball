@@ -8,7 +8,7 @@ function saveInvitation(e,id,token,expires){return e.DB.prepare('INSERT INTO adm
 function cookie(n,v,age){return `${n}=${v}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${age}`}
 function getCookie(r){return r.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9-]+)$/)?.[1]||r.headers.get('Cookie')?.match(/(?:^|; )admin_session=([^;]+)/)?.[1]||null}
 function userToken(r){return r.headers.get('X-Account-Session')?.match(/^[A-Za-z0-9-]{64,100}$/)?.[0]||r.headers.get('Cookie')?.match(/(?:^|; )account_session=([A-Za-z0-9-]{64,100})(?:;|$)/)?.[1]||null}
-async function identity(r,e){const token=userToken(r);if(!token)return null;return e.DB.prepare('SELECT s.token_hash,u.bonk_id,u.username FROM user_sessions s JOIN bonk_users u ON u.bonk_id=s.bonk_id WHERE s.token_hash=? AND s.expires_at>?').bind(await hash(token),Date.now()).first()}
+async function identity(r,e){const token=userToken(r);if(!token)return null;return e.DB.prepare('SELECT s.token_hash,u.bonk_id,u.username,v.skin_code AS avatar_code FROM user_sessions s JOIN bonk_users u ON u.bonk_id=s.bonk_id LEFT JOIN bonk_account_avatars v ON v.bonk_id=u.bonk_id WHERE s.token_hash=? AND s.expires_at>?').bind(await hash(token),Date.now()).first()}
 async function linkedAdmin(e,user){if(!user)return null;return e.DB.prepare('SELECT a.id,a.name,a.is_primary,EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=a.id AND c.code_hash IS NOT NULL) AS code_ready,(SELECT expires_at FROM admin_invitations WHERE account_id=a.id AND expires_at>?) AS invitation_expires_at FROM admin_accounts a JOIN admin_bonk_links l ON l.account_id=a.id WHERE l.bonk_id=?').bind(Date.now(),user.bonk_id).first()}
 async function session(r,e){let t=getCookie(r),user=await identity(r,e);if(!t||!user)return null;return e.DB.prepare('SELECT s.token_hash,a.id,a.name,a.is_primary FROM admin_sessions s JOIN admin_accounts a ON a.id=s.account_id JOIN admin_session_identity i ON i.token_hash=s.token_hash JOIN admin_bonk_links l ON l.account_id=a.id WHERE s.token_hash=? AND s.expires_at>? AND i.user_session_hash=? AND l.bonk_id=? AND EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=a.id AND c.code_hash IS NOT NULL)').bind(await hash(t),Date.now(),user.token_hash,user.bonk_id).first()}
 function bonkId(value){return /^(0|[1-9][0-9]{0,15})$/.test(String(value??''))&&Number.isSafeInteger(Number(value))&&Number(value)>0?String(value):null}
@@ -25,7 +25,10 @@ async function bonkAuthenticate(username,password,origin){
  if(data?.r!=='success'||typeof data.token!=='string'||!data.token)return {error:'Bonk did not accept that username and password.',status:401};
  const id=bonkId(data.id);
  if(!id||typeof data.username!=='string'||!data.username.trim()||data.username.length>100)return {error:'Bonk did not return a verified account ID and username.',status:502};
- return {id,username:data.username};
+ const selected=Number(data.activeAvatarNumber??data.activeavatarnumber),slot=selected===0?1:selected;
+ const code=Number.isInteger(slot)&&slot>=1&&slot<=5?data['avatar'+slot]:null;
+ const avatar=typeof code==='string'&&code.length>0&&code.length<=20000?code:null;
+ return {id,username:data.username,avatar_code:avatar};
 }
 async function clearUserSession(r,e){const token=userToken(r);if(!token)return;const digest=await hash(token);await e.DB.batch([e.DB.prepare('DELETE FROM admin_sessions WHERE token_hash IN (SELECT token_hash FROM admin_session_identity WHERE user_session_hash=?)').bind(digest),e.DB.prepare('DELETE FROM admin_session_identity WHERE user_session_hash=?').bind(digest),e.DB.prepare('DELETE FROM user_sessions WHERE token_hash=?').bind(digest)])}
 async function isAuth(r,e){return !!(await session(r,e))?.id}
@@ -62,13 +65,13 @@ if(p==='/api/bonk/login'&&m==='POST'){
  if(verified.error)return J({error:verified.error},verified.status,o,e);
  await clearUserSession(r,e);
  const t=uuid()+uuid(),digest=await hash(t);
- await e.DB.batch([e.DB.prepare('INSERT INTO bonk_users(bonk_id,username,updated_at) VALUES(?,?,?) ON CONFLICT(bonk_id) DO UPDATE SET username=excluded.username,updated_at=excluded.updated_at').bind(verified.id,verified.username,now()),e.DB.prepare('INSERT INTO user_sessions(token_hash,bonk_id,expires_at) VALUES(?,?,?)').bind(digest,verified.id,Date.now()+86400000)]);
+ await e.DB.batch([e.DB.prepare('INSERT INTO bonk_users(bonk_id,username,updated_at) VALUES(?,?,?) ON CONFLICT(bonk_id) DO UPDATE SET username=excluded.username,updated_at=excluded.updated_at').bind(verified.id,verified.username,now()),e.DB.prepare('INSERT INTO bonk_account_avatars(bonk_id,skin_code) VALUES(?,?) ON CONFLICT(bonk_id) DO UPDATE SET skin_code=excluded.skin_code').bind(verified.id,verified.avatar_code),e.DB.prepare('INSERT INTO user_sessions(token_hash,bonk_id,expires_at) VALUES(?,?,?)').bind(digest,verified.id,Date.now()+86400000)]);
  // Bootstrap only the explicitly configured numeric primary identity. Never match a name or trust a browser ID.
  if(bonkId(e.PRIMARY_BONK_ID)===verified.id)await e.DB.prepare('INSERT OR IGNORE INTO admin_bonk_links(account_id,bonk_id) SELECT id,? FROM admin_accounts WHERE is_primary=1 AND NOT EXISTS(SELECT 1 FROM admin_bonk_links WHERE account_id=admin_accounts.id)').bind(verified.id).run();
- return new Response(JSON.stringify({user:{id:verified.id,username:verified.username},account_session_token:t}),{headers:{...H(o,e),'Set-Cookie':cookie('account_session',t,86400)}});
+ return new Response(JSON.stringify({user:{id:verified.id,username:verified.username,avatar_code:verified.avatar_code},account_session_token:t}),{headers:{...H(o,e),'Set-Cookie':cookie('account_session',t,86400)}});
 }
 if(p==='/api/bonk/logout'&&m==='POST'){await clearUserSession(r,e);const headers=new Headers(H(o,e));headers.append('Set-Cookie',cookie('account_session','',0));headers.append('Set-Cookie',cookie('admin_session','',0));return new Response('{"ok":true}',{headers})}
-if(p==='/api/session'&&m==='GET'){let user=await identity(r,e),s=await session(r,e),admin=await linkedAdmin(e,user);return J({authenticated:!!s?.id,code_verified:!!s,user:user?{id:user.bonk_id,username:user.username}:null,admin_account:admin,account:s?.id?{id:s.id,name:s.name,is_primary:!!s.is_primary}:null},200,o,e);}
+if(p==='/api/session'&&m==='GET'){let user=await identity(r,e),s=await session(r,e),admin=await linkedAdmin(e,user);return J({authenticated:!!s?.id,code_verified:!!s,user:user?{id:user.bonk_id,username:user.username,avatar_code:user.avatar_code}:null,admin_account:admin,account:s?.id?{id:s.id,name:s.name,is_primary:!!s.is_primary}:null},200,o,e);}
 if(p==='/api/login'&&m==='POST'){
 let b=await r.json().catch(()=>({})),id=String(b.account_id||''),code=String(b.code||'');
 let user=await identity(r,e),account=await linkedAdmin(e,user);if(!user)return J({error:'Sign in with your Bonk account first.'},401,o,e);if(!account||account.id!==id)return J({error:'This Bonk account is not authorised for that administrator account.'},403,o,e);
