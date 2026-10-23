@@ -40,10 +40,10 @@ async function accountPage({admin:wantAdmin=false}={}){
 }
 function profileAssessmentOrder(history,order='newest',author=''){
  const byDate=(a,b)=>{const left=Date.parse(a.assessed_at),right=Date.parse(b.assessed_at);if(Number.isFinite(left)!==Number.isFinite(right))return Number.isFinite(left)?-1:1;return (Number.isFinite(left)?right-left:0)||Number(b.id)-Number(a.id)};
- const byAuthor=(a,b)=>String(a.assessed_by||'Not recorded').localeCompare(String(b.assessed_by||'Not recorded'),undefined,{sensitivity:'base'});
+ const points=h=>Number(h.total??A.reduce((sum,[key])=>sum+Number(h[key]||0),0));
  return history.filter(h=>!author||(h.assessed_by||'Not recorded')===author).sort((a,b)=>{
   if(order==='oldest'){const left=Date.parse(a.assessed_at),right=Date.parse(b.assessed_at);if(Number.isFinite(left)!==Number.isFinite(right))return Number.isFinite(left)?-1:1;return -byDate(a,b)}
-  if(order==='admin-asc'||order==='admin-desc')return (order==='admin-asc'?byAuthor(a,b):-byAuthor(a,b))||byDate(a,b);
+  if(order==='points-asc'||order==='points-desc')return (order==='points-asc'?points(a)-points(b):points(b)-points(a))||byDate(a,b);
   return byDate(a,b);
  });
 }
@@ -55,11 +55,11 @@ function profileAssessmentCard(h){
 }
 function renderOwnProfile(user,record,history){
  const authors=[...new Set(history.map(h=>h.assessed_by||'Not recorded'))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
- render(`<section class="own-profile"><div class="hero own-profile-heading"><div class="account-profile">${accountAvatar(user)}<h1>${esc(user.username)}</h1></div>${user.id?`<p>Bonk account ID: ${esc(user.id)}</p>`:''}</div>${history.length?`<section aria-labelledby="ownAssessmentsTitle"><div class="profile-assessments-toolbar"><h2 id="ownAssessmentsTitle">Assessments</h2><details class="profile-assessment-filter" id="profileAssessmentFilter"><summary id="profileAssessmentFilterLabel">Newest first</summary><div class="profile-filter-panel"><div class="profile-sort-options">${[['newest','Newest first'],['oldest','Oldest first'],['admin-asc','Admin: A-Z'],['admin-desc','Admin: Z-A']].map(([value,label])=>`<button type="button" data-profile-order="${value}" aria-pressed="${value==='newest'}">${label}</button>`).join('')}</div><details class="profile-admin-submenu"><summary>Admins <span aria-hidden="true">&#9666;</span></summary><div class="profile-admin-options"><button type="button" data-profile-author="" aria-pressed="true">All admins</button>${authors.map(name=>`<button type="button" data-profile-author="${esc(name)}" aria-pressed="false">${esc(name)}</button>`).join('')}</div></details></div></details></div><p class="meta" id="profileAssessmentCount" role="status"></p><div class="profile-assessments-grid" id="profileAssessmentCards" tabindex="0" aria-label="Assessments, scroll horizontally for more"></div></section>`:'<p>No assessments have been recorded for this username yet.</p>'}</section>`);
+ render(`<section class="own-profile"><div class="hero own-profile-heading"><div class="account-profile">${accountAvatar(user)}<h1>${esc(user.username)}</h1></div>${user.id?`<p>Bonk account ID: ${esc(user.id)}</p>`:''}</div>${history.length?`<section aria-labelledby="ownAssessmentsTitle"><div class="profile-assessments-toolbar"><h2 id="ownAssessmentsTitle">Assessments</h2><details class="profile-assessment-filter" id="profileAssessmentFilter"><summary id="profileAssessmentFilterLabel">Newest first</summary><div class="profile-filter-panel"><div class="profile-sort-options">${[['newest','Newest first'],['oldest','Oldest first'],['points-asc','Ascending'],['points-desc','Descending']].map(([value,label])=>`<button type="button" data-profile-order="${value}" aria-pressed="${value==='newest'}">${label}</button>`).join('')}</div><details class="profile-admin-submenu"><summary>Admins <span aria-hidden="true">&#9656;</span></summary><div class="profile-admin-options"><button type="button" data-profile-author="" aria-pressed="true">All admins</button>${authors.map(name=>`<button type="button" data-profile-author="${esc(name)}" aria-pressed="false">${esc(name)}</button>`).join('')}</div></details></div></details></div><p class="meta" id="profileAssessmentCount" role="status"></p><div class="profile-assessments-grid" id="profileAssessmentCards" tabindex="0" aria-label="Assessments, scroll horizontally for more"></div></section>`:'<p>No assessments have been recorded for this username yet.</p>'}</section>`);
  if(!history.length)return;
  const filter=document.querySelector('#profileAssessmentFilter'),label=document.querySelector('#profileAssessmentFilterLabel'),cards=document.querySelector('#profileAssessmentCards'),count=document.querySelector('#profileAssessmentCount'),submenu=filter.querySelector('.profile-admin-submenu');
  let order='newest',author='';
- const labels={newest:'Newest first',oldest:'Oldest first','admin-asc':'Admin: A-Z','admin-desc':'Admin: Z-A'};
+ const labels={newest:'Newest first',oldest:'Oldest first','points-asc':'Ascending','points-desc':'Descending'};
  function draw(){const visible=profileAssessmentOrder(history,order,author);cards.innerHTML=visible.map(profileAssessmentCard).join('')||'<p>No assessments match this admin.</p>';cards.scrollLeft=0;count.textContent=`${visible.length} ${visible.length===1?'assessment':'assessments'}`;label.textContent=labels[order]+(author?' - '+author:'');filter.querySelectorAll('[data-profile-order]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.profileOrder===order)));filter.querySelectorAll('[data-profile-author]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.profileAuthor===author)))}
  function close(){filter.open=false;submenu.open=false;label.focus()}
  filter.querySelectorAll('[data-profile-order]').forEach(button=>button.onclick=()=>{order=button.dataset.profileOrder;draw();close()});
@@ -68,7 +68,7 @@ function renderOwnProfile(user,record,history){
  submenu.addEventListener('pointerleave',event=>{if(event.pointerType==='mouse'&&!submenu.contains(document.activeElement))submenu.open=false});
  submenu.addEventListener('keydown',event=>{if(event.key==='ArrowRight'){event.preventDefault();submenu.open=true;submenu.querySelector('button').focus()}else if(event.key==='ArrowLeft'){event.preventDefault();event.stopPropagation();submenu.open=false;submenu.querySelector('summary').focus()}});
  filter.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close()}});
- filter.addEventListener('toggle',()=>{if(!filter.open)submenu.open=false});draw();
+ filter.addEventListener('toggle',()=>{if(!filter.open){submenu.open=false;return}if(typeof innerWidth==='number'){const panel=filter.querySelector('.profile-filter-panel');panel.style.right=innerWidth>540?Math.max(0,filter.getBoundingClientRect().right+252-innerWidth+12)+'px':'0px'}});draw();
 }
 async function publicPlayerProfile(id){
  render('<div class="login"><h1>Profile</h1><p>Loading player profile...</p></div>');

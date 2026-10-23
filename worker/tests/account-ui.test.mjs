@@ -58,10 +58,10 @@ test('profiles without assessments omit the assessments heading and controls',()
 });
 
 test('assessment order respects timestamps, explicit sort choice, and admin filter',()=>{
- const ui=fixture({user:null}),history=[{id:1,assessed_at:'2026-10-22T10:00:00Z',assessed_by:'Zed'},{id:2,assessed_at:'2026-10-22T11:00:00Z',assessed_by:'Amy'},{id:3,assessed_at:'2026-10-23',assessed_by:'Zed'}];
+ const ui=fixture({user:null}),history=[{id:1,assessed_at:'2026-10-22T10:00:00Z',assessed_by:'Zed',total:1300},{id:2,assessed_at:'2026-10-22T11:00:00Z',assessed_by:'Amy',total:1500},{id:3,assessed_at:'2026-10-23',assessed_by:'Zed',total:1300}];
  const ids=(order,author='')=>Array.from(ui.context.profileAssessmentOrder(history,order,author),h=>h.id);
  assert.deepEqual(ids('newest'),[3,2,1]);assert.deepEqual(ids('oldest'),[1,2,3]);
- assert.deepEqual(ids('admin-asc'),[2,3,1]);assert.deepEqual(ids('admin-desc'),[3,1,2]);
+ assert.deepEqual(ids('points-asc'),[3,1,2]);assert.deepEqual(ids('points-desc'),[2,3,1]);
  assert.deepEqual(ids('oldest','Zed'),[1,3]);assert.deepEqual(ids('newest','Absent'),[]);
  assert.deepEqual(history.map(h=>h.id),[1,2,3]);
 });
@@ -69,7 +69,7 @@ test('assessment order respects timestamps, explicit sort choice, and admin filt
 test('single profile dropdown sorts, filters and keeps the admin flyout interactive',()=>{
  const ui=fixture({user:null}),cards={scrollLeft:100},count={},label={focus(){}};
  const makeButton=dataset=>({dataset,setAttribute(key,value){this[key]=value},focus(){}});
- const orders=['newest','oldest','admin-asc','admin-desc'].map(value=>makeButton({profileOrder:value}));
+ const orders=['newest','oldest','points-asc','points-desc'].map(value=>makeButton({profileOrder:value}));
  const authors=['','Amy','Zed'].map(value=>makeButton({profileAuthor:value}));
  const submenuEvents={},events={},submenu={open:false,addEventListener(key,fn){submenuEvents[key]=fn},contains:()=>false,querySelector:key=>key==='button'?authors[0]:label};
  const filter={open:true,querySelector:()=>submenu,querySelectorAll:key=>key==='[data-profile-order]'?orders:authors,addEventListener(key,fn){events[key]=fn}};
