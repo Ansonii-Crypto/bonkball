@@ -201,3 +201,8 @@ Assessment edit logs now capture before/after fields for edits to existing asses
 
 ## Homepage
 The default route (#/) is now the football landing page. #/players retains the existing player browser, #/classes shows classes, and #/admin opens the existing account/admin tools. The homepage uses homepage.css, homepage.js, and football-background.js, with live data from config.js and /api/recent-assessments. No local preview mocks are shipped. Tier badges use the coloured letter bubbles throughout. The public recent endpoint returns only public player details and author/timestamp summaries; drafts and detailed admin logs remain protected.
+
+
+## Bonk account sign-in
+
+Account sign-in now precedes administrator code verification. See [BONK-ACCOUNTS.md](BONK-ACCOUNTS.md) for the required migration, primary Bonk ID configuration, deployment order, and security model. Deploy the new Worker before publishing this frontend.

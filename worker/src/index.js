@@ -7,7 +7,26 @@ async function credential(e,id){return e.DB.prepare('SELECT * FROM admin_credent
 function saveInvitation(e,id,token,expires){return e.DB.prepare('INSERT INTO admin_invitations(account_id,token,expires_at) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM admin_credentials WHERE account_id=? AND code_hash IS NOT NULL) ON CONFLICT(account_id) DO UPDATE SET token=excluded.token,expires_at=excluded.expires_at').bind(id,token,expires,id)}
 function cookie(n,v,age){return `${n}=${v}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${age}`}
 function getCookie(r){return r.headers.get('Authorization')?.match(/^Bearer ([A-Za-z0-9-]+)$/)?.[1]||r.headers.get('Cookie')?.match(/(?:^|; )admin_session=([^;]+)/)?.[1]||null}
-async function session(r,e){let t=getCookie(r);if(!t)return null;return e.DB.prepare('SELECT s.token_hash,a.id,a.name,a.is_primary FROM admin_sessions s LEFT JOIN admin_accounts a ON a.id=s.account_id WHERE s.token_hash=? AND s.expires_at>? AND EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=a.id AND c.code_hash IS NOT NULL)').bind(await hash(t),Date.now()).first()}
+function userToken(r){return r.headers.get('X-Account-Session')?.match(/^[A-Za-z0-9-]{64,100}$/)?.[0]||r.headers.get('Cookie')?.match(/(?:^|; )account_session=([A-Za-z0-9-]{64,100})(?:;|$)/)?.[1]||null}
+async function identity(r,e){const token=userToken(r);if(!token)return null;return e.DB.prepare('SELECT s.token_hash,u.bonk_id,u.username FROM user_sessions s JOIN bonk_users u ON u.bonk_id=s.bonk_id WHERE s.token_hash=? AND s.expires_at>?').bind(await hash(token),Date.now()).first()}
+async function linkedAdmin(e,user){if(!user)return null;return e.DB.prepare('SELECT a.id,a.name,a.is_primary,EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=a.id AND c.code_hash IS NOT NULL) AS code_ready,(SELECT expires_at FROM admin_invitations WHERE account_id=a.id AND expires_at>?) AS invitation_expires_at FROM admin_accounts a JOIN admin_bonk_links l ON l.account_id=a.id WHERE l.bonk_id=?').bind(Date.now(),user.bonk_id).first()}
+async function session(r,e){let t=getCookie(r),user=await identity(r,e);if(!t||!user)return null;return e.DB.prepare('SELECT s.token_hash,a.id,a.name,a.is_primary FROM admin_sessions s JOIN admin_accounts a ON a.id=s.account_id JOIN admin_session_identity i ON i.token_hash=s.token_hash JOIN admin_bonk_links l ON l.account_id=a.id WHERE s.token_hash=? AND s.expires_at>? AND i.user_session_hash=? AND l.bonk_id=? AND EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=a.id AND c.code_hash IS NOT NULL)').bind(await hash(t),Date.now(),user.token_hash,user.bonk_id).first()}
+function bonkId(value){return /^(0|[1-9][0-9]{0,15})$/.test(String(value??''))&&Number.isSafeInteger(Number(value))&&Number(value)>0?String(value):null}
+async function bonkAuthenticate(username,password,origin){
+ let response;
+ try{response=await fetch('https://bonk2.io/scripts/login_legacy.php',{method:'POST',redirect:'error',signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','Origin':origin},body:new URLSearchParams({username,password,remember:'false'})})}catch{return {error:'Unable to reach Bonk securely. Try again later.',status:502}}
+ if(!response.ok)return {error:response.status===429?'Bonk is rate-limiting sign-ins. Please wait.':'Bonk rejected the connection. Try again later or sign in on bonk.io.',status:response.status===429?429:502};
+ // Bound the response without logging or storing passwords or provider tokens.
+ const reader=response.body.getReader();let chunks=[],size=0;
+ try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>512000){await reader.cancel();return {error:'Unexpected Bonk response.',status:502}}chunks.push(value)}}catch{return {error:'Incomplete Bonk response.',status:502}}
+ const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+ let data;try{data=JSON.parse(new TextDecoder().decode(bytes))}catch{return {error:'Unexpected Bonk response.',status:502}}
+ if(data?.r!=='success'||typeof data.token!=='string'||!data.token)return {error:'Bonk did not accept that username and password.',status:401};
+ const id=bonkId(data.id);
+ if(!id||typeof data.username!=='string'||!data.username.trim()||data.username.length>100)return {error:'Bonk did not return a verified account ID and username.',status:502};
+ return {id,username:data.username};
+}
+async function clearUserSession(r,e){const token=userToken(r);if(!token)return;const digest=await hash(token);await e.DB.batch([e.DB.prepare('DELETE FROM admin_sessions WHERE token_hash IN (SELECT token_hash FROM admin_session_identity WHERE user_session_hash=?)').bind(digest),e.DB.prepare('DELETE FROM admin_session_identity WHERE user_session_hash=?').bind(digest),e.DB.prepare('DELETE FROM user_sessions WHERE token_hash=?').bind(digest)])}
 async function isAuth(r,e){return !!(await session(r,e))?.id}
 async function guard(r,e,o){if(!await isAuth(r,e))return J({error:'Select an administrator account first.'},401,o,e)}
 function audit(e,user,action,player=null,assessmentId=null,account=null,onlyChanged=false){return e.DB.prepare(`INSERT INTO activity_logs(actor_id,actor_name,action,player_id,player_name,assessed_at,assessment_id,account_name,created_at) ${onlyChanged?'SELECT ':'VALUES('}?,?,?,?,?,?,COALESCE(?,(SELECT MAX(id) FROM assessments WHERE player_id=?)),?,?${onlyChanged?' WHERE changes() > 0':')'}`).bind(user.id,user.name,action,player?.id||null,player?.name||null,player?.assessed_at||null,assessmentId,player?.id||null,account,now())}
@@ -31,11 +50,27 @@ function draftData(input){
  data.overall_tier=calculatedTier(data);return data;
 }
 async function main(r,e){let u=new URL(r.url),o=r.headers.get('Origin')||'',p=u.pathname,m=r.method;
-if(m==='OPTIONS')return new Response(null,{status:204,headers:{...H(o,e),'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization'}});
-if(p==='/api/session'){let s=await session(r,e);return J({authenticated:!!s?.id,code_verified:!!s,account:s?.id?{id:s.id,name:s.name,is_primary:!!s.is_primary}:null},200,o,e);}
+if(m==='OPTIONS')return new Response(null,{status:204,headers:{...H(o,e),'Access-Control-Allow-Methods':'GET,POST,PUT,DELETE,OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization, X-Account-Session'}});
+if(p==='/api/bonk/login'&&m==='POST'){
+ let b=await r.json().catch(()=>({}));
+ if(typeof b.username!=='string'||!b.username.trim()||b.username.length>100||typeof b.password!=='string'||!b.password||b.password.length>1024)return J({error:'Enter your Bonk username and password.'},400,o,e);
+ const bucket=Math.floor(Date.now()/600000),key=await hash(b.username.trim().toLowerCase());
+ const limit=await e.DB.prepare('INSERT INTO bonk_login_attempts(identity_hash,window,attempts) VALUES(?,?,1) ON CONFLICT(identity_hash) DO UPDATE SET window=excluded.window,attempts=CASE WHEN bonk_login_attempts.window=excluded.window THEN bonk_login_attempts.attempts+1 ELSE 1 END RETURNING attempts').bind(key,bucket).first();
+ if(limit.attempts>10)return J({error:'Too many sign-in attempts. Try again in ten minutes.'},429,o,e);
+ const verified=await bonkAuthenticate(b.username.trim(),b.password,e.ALLOWED_ORIGIN);b.password='';
+ if(verified.error)return J({error:verified.error},verified.status,o,e);
+ await clearUserSession(r,e);
+ const t=uuid()+uuid(),digest=await hash(t);
+ await e.DB.batch([e.DB.prepare('INSERT INTO bonk_users(bonk_id,username,updated_at) VALUES(?,?,?) ON CONFLICT(bonk_id) DO UPDATE SET username=excluded.username,updated_at=excluded.updated_at').bind(verified.id,verified.username,now()),e.DB.prepare('INSERT INTO user_sessions(token_hash,bonk_id,expires_at) VALUES(?,?,?)').bind(digest,verified.id,Date.now()+86400000)]);
+ // Bootstrap only the explicitly configured numeric primary identity. Never match a name or trust a browser ID.
+ if(bonkId(e.PRIMARY_BONK_ID)===verified.id)await e.DB.prepare('INSERT OR IGNORE INTO admin_bonk_links(account_id,bonk_id) SELECT id,? FROM admin_accounts WHERE is_primary=1 AND NOT EXISTS(SELECT 1 FROM admin_bonk_links WHERE account_id=admin_accounts.id)').bind(verified.id).run();
+ return new Response(JSON.stringify({user:{id:verified.id,username:verified.username},account_session_token:t}),{headers:{...H(o,e),'Set-Cookie':cookie('account_session',t,86400)}});
+}
+if(p==='/api/bonk/logout'&&m==='POST'){await clearUserSession(r,e);const headers=new Headers(H(o,e));headers.append('Set-Cookie',cookie('account_session','',0));headers.append('Set-Cookie',cookie('admin_session','',0));return new Response('{"ok":true}',{headers})}
+if(p==='/api/session'&&m==='GET'){let user=await identity(r,e),s=await session(r,e),admin=await linkedAdmin(e,user);return J({authenticated:!!s?.id,code_verified:!!s,user:user?{id:user.bonk_id,username:user.username}:null,admin_account:admin,account:s?.id?{id:s.id,name:s.name,is_primary:!!s.is_primary}:null},200,o,e);}
 if(p==='/api/login'&&m==='POST'){
 let b=await r.json().catch(()=>({})),id=String(b.account_id||''),code=String(b.code||'');
-let account=await e.DB.prepare('SELECT id,name,is_primary FROM admin_accounts WHERE id=?').bind(id).first();if(!account)return J({error:'Invalid account or code.'},401,o,e);
+let user=await identity(r,e),account=await linkedAdmin(e,user);if(!user)return J({error:'Sign in with your Bonk account first.'},401,o,e);if(!account||account.id!==id)return J({error:'This Bonk account is not authorised for that administrator account.'},403,o,e);
 let window=Math.floor(Date.now()/600000);let attempts=await e.DB.prepare('INSERT INTO admin_login_attempts(account_id,window,attempts) VALUES(?,?,1) ON CONFLICT(account_id) DO UPDATE SET window=excluded.window,attempts=CASE WHEN admin_login_attempts.window=excluded.window THEN admin_login_attempts.attempts+1 ELSE 1 END RETURNING attempts').bind(id,window).first();if(attempts.attempts>10)return J({error:'Too many attempts. Try again in ten minutes.'},429,o,e);
 let c=await credential(e,id);
 if(c?.code_hash){if(!/^\d{6}$/.test(code)||await codeHash(code,c.salt)!==c.code_hash)return J({error:'Invalid account code.'},401,o,e)}
@@ -50,12 +85,20 @@ let authorizationArgs=[id,code,setupTime];
 let results=await e.DB.batch([e.DB.prepare(`INSERT INTO admin_credentials(account_id,salt,code_hash) SELECT ?,?,? WHERE ${authorization} ON CONFLICT(account_id) DO UPDATE SET salt=excluded.salt,code_hash=excluded.code_hash,invitation_hash=NULL WHERE admin_credentials.code_hash IS NULL`).bind(id,salt,digest,...authorizationArgs),accountAuditAfterChange(e,account,'set_admin_code',account.name),e.DB.prepare('DELETE FROM admin_invitations WHERE account_id=? AND EXISTS(SELECT 1 FROM admin_credentials WHERE account_id=? AND code_hash IS NOT NULL)').bind(id,id)]);let result=results[0];
 if(!result.meta?.changes)return J({error:'Setup invitation expired or changed, or account already set up. Try signing in again.'},409,o,e);
 }
-let t=uuid()+uuid();await e.DB.prepare('INSERT INTO admin_sessions(token_hash,expires_at,account_id) VALUES(?,?,?)').bind(await hash(t),Date.now()+28800000,id).run();return new Response(JSON.stringify({ok:true,session_token:t}),{headers:{...H(o,e),'Set-Cookie':cookie('admin_session',t,28800)}})}
-if(p==='/api/logout'&&m==='POST'){let t=getCookie(r);if(t)await e.DB.prepare('DELETE FROM admin_sessions WHERE token_hash=?').bind(await hash(t)).run();return new Response('{"ok":true}',{headers:{...H(o,e),'Set-Cookie':cookie('admin_session','',0)}})}
+let t=uuid()+uuid(),digest=await hash(t);await e.DB.batch([e.DB.prepare('INSERT INTO admin_sessions(token_hash,expires_at,account_id) VALUES(?,?,?)').bind(digest,Date.now()+1800000,id),e.DB.prepare('INSERT INTO admin_session_identity(token_hash,user_session_hash) VALUES(?,?)').bind(digest,user.token_hash)]);return new Response(JSON.stringify({ok:true,session_token:t}),{headers:{...H(o,e),'Set-Cookie':cookie('admin_session',t,1800)}})}
+if(p==='/api/logout'&&m==='POST'){const user=await identity(r,e);if(user)await e.DB.prepare('DELETE FROM admin_sessions WHERE token_hash IN (SELECT token_hash FROM admin_session_identity WHERE user_session_hash=?)').bind(user.token_hash).run();return new Response('{"ok":true}',{headers:{...H(o,e),'Set-Cookie':cookie('admin_session','',0)}})}
 if(p==='/api/accounts'){
 let s=await session(r,e);
-if(m==='GET'){let a=await e.DB.prepare('SELECT id,name,is_primary,EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=admin_accounts.id AND c.code_hash IS NOT NULL) AS code_ready,(SELECT requested_at FROM admin_code_requests WHERE account_id=admin_accounts.id) AS code_change_requested_at FROM admin_accounts ORDER BY is_primary DESC,name COLLATE NOCASE').all();let invitations=await e.DB.prepare('SELECT account_id,token,expires_at FROM admin_invitations WHERE expires_at>?').bind(Date.now()).all();let map=new Map(invitations.results.map(i=>[i.account_id,i]));return J({accounts:a.results.map(account=>{let invite=!account.code_ready?map.get(account.id):null;return {...account,invitation_expires_at:invite?.expires_at||null,...(s?.is_primary&&invite?{invitation:invite.token}:{})}})},200,o,e)}
-if(m==='POST'){if(!s?.is_primary)return J({error:'Only the primary administrator can manage accounts.'},403,o,e);let b=await r.json(),name=String(b.name||'').trim();if(!name||name.length>60)return J({error:'Enter an account name of 1?60 characters.'},400,o,e);if(await e.DB.prepare('SELECT id FROM admin_accounts WHERE name=? COLLATE NOCASE').bind(name).first())return J({error:'That account name already exists.'},409,o,e);let id=uuid(),invitation=uuid(),expires=Date.now()+600000;await e.DB.batch([e.DB.prepare('INSERT INTO admin_accounts(id,name,is_primary) VALUES(?,?,0)').bind(id,name),e.DB.prepare('INSERT INTO admin_account_metadata(account_id,created_at) VALUES(?,?)').bind(id,now()),e.DB.prepare('INSERT INTO admin_credentials(account_id,invitation_hash) VALUES(?,?)').bind(id,await hash(invitation)),saveInvitation(e,id,invitation,expires),audit(e,s,'created_admin',null,null,name),audit(e,s,'generated_admin_invitation',null,null,name)]);return J({ok:true,invitation,expires_at:expires,account_name:name},201,o,e)}
+if(m==='GET'){if(!s?.id)return J({error:'Unlock administrator access first.'},403,o,e);let a=await e.DB.prepare('SELECT id,name,is_primary,(SELECT bonk_id FROM admin_bonk_links WHERE account_id=admin_accounts.id) AS bonk_id,EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=admin_accounts.id AND c.code_hash IS NOT NULL) AS code_ready,(SELECT requested_at FROM admin_code_requests WHERE account_id=admin_accounts.id) AS code_change_requested_at FROM admin_accounts ORDER BY is_primary DESC,name COLLATE NOCASE').all();let invitations=await e.DB.prepare('SELECT account_id,token,expires_at FROM admin_invitations WHERE expires_at>?').bind(Date.now()).all();let map=new Map(invitations.results.map(i=>[i.account_id,i]));return J({accounts:a.results.map(account=>{let invite=!account.code_ready?map.get(account.id):null;return {...account,invitation_expires_at:invite?.expires_at||null,...(s?.is_primary&&invite?{invitation:invite.token}:{})}})},200,o,e)}
+if(m==='POST'){if(!s?.is_primary)return J({error:'Only the primary administrator can manage accounts.'},403,o,e);let b=await r.json(),name=String(b.name||'').trim(),targetId=bonkId(b.bonk_id);if(!targetId)return J({error:'Enter the intended Bonk account ID.'},400,o,e);if(await e.DB.prepare('SELECT account_id FROM admin_bonk_links WHERE bonk_id=?').bind(targetId).first())return J({error:'That Bonk account already has an admin account.'},409,o,e);if(!name||name.length>60)return J({error:'Enter an account name of 1?60 characters.'},400,o,e);if(await e.DB.prepare('SELECT id FROM admin_accounts WHERE name=? COLLATE NOCASE').bind(name).first())return J({error:'That account name already exists.'},409,o,e);let id=uuid(),invitation=uuid(),expires=Date.now()+600000;await e.DB.batch([e.DB.prepare('INSERT INTO admin_accounts(id,name,is_primary) VALUES(?,?,0)').bind(id,name),e.DB.prepare('INSERT INTO admin_bonk_links(account_id,bonk_id) VALUES(?,?)').bind(id,targetId),e.DB.prepare('INSERT INTO admin_account_metadata(account_id,created_at) VALUES(?,?)').bind(id,now()),e.DB.prepare('INSERT INTO admin_credentials(account_id,invitation_hash) VALUES(?,?)').bind(id,await hash(invitation)),saveInvitation(e,id,invitation,expires),audit(e,s,'created_admin',null,null,name),audit(e,s,'generated_admin_invitation',null,null,name)]);return J({ok:true,invitation,expires_at:expires,account_name:name},201,o,e)}
+}
+if(p==='/api/accounts/link'&&m==='POST'){
+ const s=await session(r,e);if(!s?.is_primary)return J({error:'Only the primary administrator can link accounts.'},403,o,e);
+ const b=await r.json().catch(()=>({})),id=String(b.account_id||''),targetId=bonkId(b.bonk_id);
+ const account=await e.DB.prepare('SELECT id,name,is_primary FROM admin_accounts WHERE id=?').bind(id).first();
+ if(!account||account.is_primary||!targetId)return J({error:'Select an existing secondary admin and a valid Bonk account ID.'},400,o,e);
+ if(await e.DB.prepare('SELECT account_id FROM admin_bonk_links WHERE account_id=? OR bonk_id=?').bind(id,targetId).first())return J({error:'That administrator or Bonk account is already linked.'},409,o,e);
+ await e.DB.batch([e.DB.prepare('INSERT INTO admin_bonk_links(account_id,bonk_id) VALUES(?,?)').bind(id,targetId),audit(e,s,'linked_admin_account',null,null,account.name)]);return J({ok:true},200,o,e);
 }
 if(p==='/api/accounts/select'&&m==='POST')return J({error:'Sign in with the target account personal code.'},403,o,e);
 if(p==='/api/accounts/invite'&&m==='POST'){let s=await session(r,e);if(!s?.is_primary)return J({error:'Only the primary administrator can issue invitations.'},403,o,e);let b=await r.json(),account=await e.DB.prepare('SELECT id,name FROM admin_accounts WHERE id=?').bind(b.account_id).first();if(!account)return J({error:'Account not found.'},404,o,e);if((await credential(e,account.id))?.code_hash)return J({error:'Account already has a personal code.'},409,o,e);let invitation=uuid(),expires=Date.now()+600000;let results=await e.DB.batch([e.DB.prepare('INSERT INTO admin_credentials(account_id,invitation_hash) VALUES(?,?) ON CONFLICT(account_id) DO UPDATE SET invitation_hash=excluded.invitation_hash WHERE admin_credentials.code_hash IS NULL').bind(account.id,await hash(invitation)),saveInvitation(e,account.id,invitation,expires),accountAuditAfterChange(e,s,'generated_admin_invitation',account.name)]);let result=results[1];if(!result.meta?.changes)return J({error:'Account already set up.'},409,o,e);return J({invitation,expires_at:expires,account_name:account.name},200,o,e)}
@@ -80,7 +123,7 @@ let performed=await e.DB.prepare(`SELECT COUNT(*) AS actions_performed,COUNT(DIS
 let affected=await e.DB.prepare(`SELECT COUNT(*) AS actions_received,SUM(CASE WHEN action='reset_admin_code' THEN 1 ELSE 0 END) AS code_resets_received,SUM(CASE WHEN action='generated_admin_invitation' THEN 1 ELSE 0 END) AS invitations_received FROM activity_logs WHERE account_name=? COLLATE NOCASE AND actor_id<>? AND (? IS NULL OR created_at>=?)`).bind(account.name,id,account.created_at,account.created_at).first();
 return J({account,statistics:{...performed,...affected}},200,o,e)}
 let accountMatch=p.match(/^\/api\/accounts\/([^/]+)$/);
-if(accountMatch&&m==='DELETE'){let s=await session(r,e);if(!s?.is_primary)return J({error:'Only the primary administrator can manage accounts.'},403,o,e);let id=decodeURIComponent(accountMatch[1]),a=await e.DB.prepare('SELECT * FROM admin_accounts WHERE id=?').bind(id).first();if(!a)return J({error:'Account not found.'},404,o,e);if(a.is_primary)return J({error:'The primary account cannot be deleted.'},403,o,e);await e.DB.batch([e.DB.prepare('DELETE FROM admin_sessions WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_invitations WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_credentials WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_code_requests WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_account_metadata WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_accounts WHERE id=?').bind(id),audit(e,s,'deleted_admin',null,null,a.name)]);return J({ok:true},200,o,e)}
+if(accountMatch&&m==='DELETE'){let s=await session(r,e);if(!s?.is_primary)return J({error:'Only the primary administrator can manage accounts.'},403,o,e);let id=decodeURIComponent(accountMatch[1]),a=await e.DB.prepare('SELECT * FROM admin_accounts WHERE id=?').bind(id).first();if(!a)return J({error:'Account not found.'},404,o,e);if(a.is_primary)return J({error:'The primary account cannot be deleted.'},403,o,e);await e.DB.batch([e.DB.prepare('DELETE FROM admin_sessions WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_invitations WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_credentials WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_code_requests WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_account_metadata WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_bonk_links WHERE account_id=?').bind(id),e.DB.prepare('DELETE FROM admin_accounts WHERE id=?').bind(id),audit(e,s,'deleted_admin',null,null,a.name)]);return J({ok:true},200,o,e)}
 if(p==='/api/logs'&&m==='GET'){
 let q=await guard(r,e,o);if(q)return q;
 let size=Number(u.searchParams.get('limit')||25),page=Number(u.searchParams.get('page')||1);if(!Number.isInteger(size)||size<1||size>100||!Number.isInteger(page)||page<1)return J({error:'Invalid page or page size.'},400,o,e);
@@ -178,7 +221,31 @@ async function requestLimit(r,e){
  if(!e.API_RATE_LIMITER||!e.LOGIN_RATE_LIMITER)return J({error:'Service temporarily unavailable.'},503,origin,e);
  const rejected=()=>new Response(JSON.stringify({error:'Too many requests. Please wait a minute and try again.'}),{status:429,headers:{...H(origin,e),'Retry-After':'60'}});
  if(!(await e.API_RATE_LIMITER.limit({key:'api:'+ip})).success)return rejected();
- if(new URL(r.url).pathname==='/api/login'&&r.method==='POST'&&!(await e.LOGIN_RATE_LIMITER.limit({key:'login:'+ip})).success)return rejected();
+ if(['/api/login','/api/bonk/login'].includes(new URL(r.url).pathname)&&r.method==='POST'&&!(await e.LOGIN_RATE_LIMITER.limit({key:'login:'+ip})).success)return rejected();
  return null;
 }
-export default{async fetch(r,e){try{let limited=await requestLimit(r,e);if(limited)return limited;await e.DB.prepare('DELETE FROM admin_sessions WHERE expires_at<=?').bind(Date.now()).run();return await main(r,e)}catch(x){if(/UNIQUE constraint failed.*idx_players_unique_name/i.test(String(x?.message||x)))return J({error:duplicateNameError},409,r.headers.get('Origin')||'',e);return J({error:'Server error.'},500,r.headers.get('Origin')||'',e)}}};
+async function checkedBody(r){
+ const reader=r.body?.getReader();if(!reader)return r;let size=0,chunks=[];
+ for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>65536){await reader.cancel();return null}chunks.push(value)}
+ const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
+ return new Request(r,{body:bytes});
+}
+export default{async fetch(r,e){
+ try{
+  if(!['GET','HEAD','OPTIONS'].includes(r.method)){
+   const origin=r.headers.get('Origin');
+   if(!e.ALLOWED_ORIGIN||origin!==e.ALLOWED_ORIGIN)return J({error:'Untrusted request origin.'},403,origin||'',e);
+   if(r.headers.get('Content-Type')?.split(';')[0].trim()!=='application/json')return J({error:'JSON required.'},415,origin,e);
+   if(Number(r.headers.get('Content-Length')||0)>65536)return J({error:'Request too large.'},413,origin,e);
+  }
+  const limited=await requestLimit(r,e);if(limited)return limited;
+  if(!['GET','HEAD','OPTIONS'].includes(r.method)){const checked=await checkedBody(r);if(!checked)return J({error:'Request too large.'},413,r.headers.get('Origin')||'',e);r=checked}
+  await e.DB.prepare('DELETE FROM admin_sessions WHERE expires_at<=?').bind(Date.now()).run();
+  await e.DB.prepare('DELETE FROM user_sessions WHERE expires_at<=?').bind(Date.now()).run();
+  return await main(r,e);
+ }catch(x){
+  if(/UNIQUE constraint failed.*idx_players_unique_name/i.test(String(x?.message||x)))return J({error:duplicateNameError},409,r.headers.get('Origin')||'',e);
+  if(/UNIQUE constraint failed.*admin_bonk_links/i.test(String(x?.message||x)))return J({error:'That Bonk account or administrator is already linked.'},409,r.headers.get('Origin')||'',e);
+  return J({error:'Server error.'},500,r.headers.get('Origin')||'',e);
+ }
+}};

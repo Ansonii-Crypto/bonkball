@@ -171,7 +171,7 @@ pitchHeader.addEventListener('pointermove',event=>{
 pitchHeader.addEventListener('pointerleave',()=>{if(pitchTouchId===null)releasePitchPlayer()});
 window.addEventListener('blur',releasePitchPlayer);
 pitchHeader.addEventListener('pointerdown',event=>{
- if(event.button!==0||event.target.closest('a,button,input,select,textarea'))return;
+ if(event.button!==0||event.target.closest('a,button,input,select,textarea,summary,details'))return;
  if(event.pointerType==='touch'||event.pointerType==='pen'){
   event.preventDefault();
   if(pitchTouchId===null){pitchTouchId=event.pointerId;setPitchPointer(event);pitchPressed=false;pitchHeader.setPointerCapture(event.pointerId)}

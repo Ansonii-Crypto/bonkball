@@ -15,10 +15,11 @@ async function navigateSite(hash,button=null,animate=false){
  const version=++revealVersion;
  if(hash==='#/'||hash==='#'||!hash){closeDestination();homepageScroller.scrollTop=0;updateHomepageHeader();return}
  await initialPreload;if(version!==revealVersion)return;
- const page=hash==='#/classes'?'classes':hash==='#/admin'||hash.startsWith('#/setup?')?'admin':'players';
+ const page=hash==='#/classes'?'classes':hash==='#/admin'||hash==='#/account'||hash.startsWith('#/setup?')?'admin':'players';
  revealAnimation?.cancel();
  if(animate)appSurface.style.clipPath='circle(0px at 50% 50%)';
  if(hash.startsWith('#/setup?')){await openSetupLink(hash);currentView='admin'}
+ else if(hash==='#/account'){await accountPage();currentView='account'}
  else if(hash==='#/admin'){await admin();currentView='admin'}
  else if(hash==='#/classes'){classesPage();currentView='classes'}
  else if(hash.startsWith('#/player/')){await player(decodeURIComponent(hash.split('/')[2]));currentView='profile'}

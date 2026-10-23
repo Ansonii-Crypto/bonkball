@@ -17,12 +17,13 @@
   <meta name="twitter:description" content="Explore player ratings, strengths, weaknesses, and assessment history for the Bonk.io football community.">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./homepage.css">
+  <link rel="stylesheet" href="./account.css">
 </head>
 <body class="homepage-shell site-shell">
   <div id="scrollArea">
     <header class="homepage-header" aria-label="Homepage header">
       <canvas id="headerPitch" aria-hidden="true"></canvas>
-      <a href="#/admin" class="admins-link" data-page="admin">Admin</a>
+      <div class="admins-link" data-account-control><a href="#/account">Account</a></div>
       <div class="hero-content">
         <h1><a href="#/" class="brand" aria-label="Bonk Critic homepage">BONK CRITIC </a></h1>
         <nav aria-label="Main navigation">
@@ -96,7 +97,7 @@
             <article><h3>Working on drafts</h3><p>A draft can be saved before it is ready. Other admins can review it, while its author can continue editing and push it to the public player list.</p></article>
             <article><h3>Keeping a record</h3><p>Assessments include the admin who saved them. The admin activity log records changes to existing assessments, including the previous and updated values.</p></article>
           </div>
-          <p class="behind-scenes-note">Administrator tools are available through the Admin link.</p>
+          <p class="behind-scenes-note"><a href="#/admin">Open administrator tools</a> with your linked Bonk account and personal code.</p>
         </div>
       </section>
     </main>
@@ -109,7 +110,7 @@
   </div>
 
   <section class="page-surface" id="appSurface" aria-label="Site content" inert>
-    <header class="destination-navigation"><a href="#/" class="brand" aria-label="Bonk Critic homepage">BONK CRITIC</a><nav aria-label="Main navigation"><a href="#/players">Players</a><a href="#/classes">Classes</a><a href="#/admin">Admin</a></nav></header>
+    <header class="destination-navigation"><a href="#/" class="brand" aria-label="Bonk Critic homepage">BONK CRITIC</a><nav aria-label="Main navigation"><a href="#/players">Players</a><a href="#/classes">Classes</a><span data-account-control><a href="#/account">Account</a></span></nav></header>
     <div class="surface-scroll"><main id="view"></main></div>
   </section>
   <div id="toast"></div>
@@ -117,6 +118,7 @@
   <script src="./classes.js"></script>
   <script src="./drafts.js"></script>
   <script src="./app.js"></script>
+  <script src="./account.js"></script>
   <script src="./homepage.js"></script>
   <script src="./football-background.js"></script>
 </body></html>

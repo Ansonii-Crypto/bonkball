@@ -27,11 +27,24 @@ function environment() {
   } }, ALLOWED_ORIGIN: 'https://bonk-critic.com', ADMIN_CODE: '654321' };
 }
 
+// Existing regression scenarios now run inside a verified Bonk identity.
+async function verifiedIdentity(env,id,bonkId=String(1000+env.db.prepare('SELECT COUNT(*) AS n FROM bonk_users').get().n)){
+ const existing=env.db.prepare('SELECT bonk_id FROM admin_bonk_links WHERE account_id=?').get(id);bonkId=existing?.bonk_id||bonkId;
+ const token=(id+'-identity-').padEnd(72,'x').slice(0,72),digest=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))).toString('hex');
+ env.db.prepare('INSERT OR IGNORE INTO bonk_users VALUES(?,?,?)').run(bonkId,id,new Date().toISOString());
+ env.db.prepare('INSERT OR IGNORE INTO admin_bonk_links VALUES(?,?)').run(id,bonkId);
+ env.db.prepare('INSERT OR REPLACE INTO user_sessions VALUES(?,?,?)').run(digest,bonkId,Date.now()+600000);
+ return {token,digest};
+}
+async function elevatedIdentity(env,id,adminDigest){const user=await verifiedIdentity(env,id);env.db.prepare('INSERT INTO admin_session_identity VALUES(?,?)').run(adminDigest,user.digest);return user.token}
+function headers(user=null,admin=null){return {Origin:'https://bonk-critic.com','Content-Type':'application/json',...(user?{'X-Account-Session':user}:{}),...(admin?{Authorization:'Bearer '+admin}:{})}}
+
 test('invitation setup immediately saves personal code and consumes invitation', async () => {
   const env = environment();
   env.db.exec("INSERT INTO admin_accounts VALUES('test','Test',0); INSERT INTO admin_credentials(account_id,invitation_hash) VALUES('test','placeholder');");
   env.db.prepare('INSERT INTO admin_invitations VALUES(?,?,?)').run('test','test-invite',Date.now()+600000);
-  const login = async body => worker.fetch(new Request('https://api.test/api/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:'test',...body})}),env);
+  const user=await verifiedIdentity(env,'test');
+  const login = async body => worker.fetch(new Request('https://api.test/api/login', {method:'POST',headers:headers(user.token),body:JSON.stringify({account_id:'test',...body})}),env);
   assert.deepEqual(await (await login({code:'test-invite'})).json(), {setup_required:true});
   const response = await login({code:'test-invite',new_code:'123456',confirm_code:'123456'});
   assert.equal(response.status,200);
@@ -47,8 +60,9 @@ for (const state of ['missing','expired','wrong']) test(`setup rejects ${state} 
   const env=environment();
   env.db.exec("INSERT INTO admin_accounts VALUES('test','Test',0)");
   if(state!=='missing')env.db.prepare('INSERT INTO admin_invitations VALUES(?,?,?)').run('test','valid-token',Date.now()+(state==='expired'?-1000:600000));
+  const user=await verifiedIdentity(env,'test');
   for(const code of [env.ADMIN_CODE,state==='wrong'?'wrong-token':'valid-token']){
-    const response=await worker.fetch(new Request('https://api.test/api/login',{method:'POST',body:JSON.stringify({account_id:'test',code,new_code:'123456',confirm_code:'123456'})}),env);
+    const response=await worker.fetch(new Request('https://api.test/api/login',{method:'POST',headers:headers(user.token),body:JSON.stringify({account_id:'test',code,new_code:'123456',confirm_code:'123456'})}),env);
     assert.equal(response.status,401);
   }
   assert.equal(env.db.prepare('SELECT COUNT(*) AS count FROM admin_credentials').get().count,0);
@@ -59,7 +73,7 @@ test('limits reject before database access and include retry and CORS headers',a
   for(const binding of ['API_RATE_LIMITER','LOGIN_RATE_LIMITER']){
     const env={ALLOWED_ORIGIN:'https://bonk-critic.com',API_RATE_LIMITER:{async limit(){return {success:true}}},LOGIN_RATE_LIMITER:{async limit(){return {success:true}}},DB:{prepare(){throw Error('Database should not be reached')}}};
     env[binding]={async limit({key}){assert.ok(key.endsWith('203.0.113.1'));return {success:false}}};
-    const response=await worker.fetch(new Request('https://api.test/api/login',{method:'POST',headers:{Origin:env.ALLOWED_ORIGIN,'CF-Connecting-IP':'203.0.113.1'}}),env);
+    const response=await worker.fetch(new Request('https://api.test/api/login',{method:'POST',headers:{Origin:env.ALLOWED_ORIGIN,'Content-Type':'application/json','CF-Connecting-IP':'203.0.113.1'}}),env);
     assert.equal(response.status,429);
     assert.equal(response.headers.get('Retry-After'),'60');
     assert.equal(response.headers.get('Access-Control-Allow-Origin'),env.ALLOWED_ORIGIN);
@@ -73,13 +87,15 @@ test('missing limiter bindings fail closed',async()=>{
 
 test('shared drafts stay private, enforce ownership and revisions, and publish once',async()=>{
   const env=environment();
+  const users={};
   for(const id of ['author','viewer']){
     env.db.prepare('INSERT INTO admin_accounts VALUES(?,?,0)').run(id,id);
     env.db.prepare('INSERT INTO admin_credentials(account_id,code_hash) VALUES(?,?)').run(id,'test-only');
     const digest=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(id+'-token'))).toString('hex');
     env.db.prepare('INSERT INTO admin_sessions VALUES(?,?,?)').run(digest,Date.now()+600000,id);
+    users[id]=await elevatedIdentity(env,id,digest);
   }
-  const request=(path,method='GET',body=null,user='author')=>worker.fetch(new Request('https://api.test'+path,{method,headers:user?{Authorization:'Bearer '+user+'-token'}:{},...(body?{body:JSON.stringify(body)}:{})}),env);
+  const request=(path,method='GET',body=null,user='author')=>worker.fetch(new Request('https://api.test'+path,{method,headers:headers(users[user],user?user+'-token':null),...(body?{body:JSON.stringify(body)}:{})}),env);
   assert.equal((await request('/api/player-drafts','GET',null,null)).status,401);
   const created=await request('/api/player-drafts','POST',{data:{name:'Draft player',control:'123'}});
   assert.equal(created.status,201);
@@ -144,14 +160,15 @@ test('creating another admin never moves an unused invitation between accounts',
  env.db.exec("INSERT INTO admin_credentials(account_id,code_hash) VALUES('primary-zimble','test-only')");
  const token='primary-token',digest=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))).toString('hex');
  env.db.prepare('INSERT INTO admin_sessions VALUES(?,?,?)').run(digest,Date.now()+600000,'primary-zimble');
- const request=(path,body=null)=>worker.fetch(new Request('https://api.test'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token},...(body?{body:JSON.stringify(body)}:{})}),env);
- const first=await (await request('/api/accounts',{name:'Zulu'})).json();
- const second=await (await request('/api/accounts',{name:'Alpha'})).json();
+ const primaryUser=await elevatedIdentity(env,'primary-zimble',digest);
+ const request=(path,body=null)=>worker.fetch(new Request('https://api.test'+path,{method:body?'POST':'GET',headers:headers(primaryUser,token),...(body?{body:JSON.stringify(body)}:{})}),env);
+ const first=await (await request('/api/accounts',{name:'Zulu',bonk_id:'2001'})).json();
+ const second=await (await request('/api/accounts',{name:'Alpha',bonk_id:'2002'})).json();
  const {accounts}=await (await request('/api/accounts')).json();
  const zulu=accounts.find(a=>a.name==='Zulu'),alpha=accounts.find(a=>a.name==='Alpha');
  assert.notEqual(zulu.id,alpha.id);assert.notEqual(first.invitation,second.invitation);
  assert.equal(zulu.invitation,first.invitation);assert.equal(alpha.invitation,second.invitation);
- const login=(id,code,new_code)=>request('/api/login',{account_id:id,code,...(new_code?{new_code,confirm_code:new_code}:{})});
+ const login=async(id,code,new_code)=>{const user=await verifiedIdentity(env,id);return worker.fetch(new Request('https://api.test/api/login',{method:'POST',headers:headers(user.token),body:JSON.stringify({account_id:id,code,...(new_code?{new_code,confirm_code:new_code}:{})})}),env)};
  assert.equal((await login(alpha.id,first.invitation)).status,401);
  assert.equal((await login(zulu.id,second.invitation)).status,401);
  assert.equal((await login(zulu.id,first.invitation,'123456')).status,200);
