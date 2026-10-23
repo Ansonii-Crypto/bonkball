@@ -19,6 +19,7 @@ async function navigateSite(hash,button=null,animate=false){
  revealAnimation?.cancel();
  if(animate)appSurface.style.clipPath='circle(0px at 50% 50%)';
  if(hash.startsWith('#/setup?')){await openSetupLink(hash);currentView='admin'}
+ else if(hash.startsWith('#/profile/')){await publicPlayerProfile(decodeURIComponent(hash.split('/')[2]));currentView='profile'}
  else if(hash==='#/profile'){await ownProfile();currentView='profile'}
  else if(hash==='#/account'){await accountPage();currentView='account'}
  else if(hash==='#/admin'){await admin();currentView='admin'}

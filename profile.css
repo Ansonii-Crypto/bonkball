@@ -18,3 +18,5 @@
 .own-profile .profile-attribute-list{margin:0;font-size:13px}.own-profile .profile-attribute-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto 18px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #42433f18}
 .own-profile .profile-attribute-list dt{font-weight:bold;overflow-wrap:anywhere}.own-profile .profile-attribute-list dd{margin:0;text-align:right}.own-profile .profile-attribute-list dd span{color:var(--muted);font-size:11px}.own-profile .profile-attribute-tier{font-weight:bold}
 .own-profile .profile-assessment-note{margin-top:18px}.own-profile .profile-assessment-note h3{margin:0 0 6px;font-size:14px}.own-profile .profile-assessment-note p{margin:0;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}
+
+.player-profile-link:hover,.player-profile-link:focus-visible{text-decoration:underline;text-underline-offset:.12em;text-decoration-thickness:.06em}

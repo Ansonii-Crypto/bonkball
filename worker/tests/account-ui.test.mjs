@@ -92,3 +92,11 @@ test('avatar supplies escaped skin data to the local renderer with an initial fa
  assert.match(html,/account-avatar-initial/);assert.match(html,/data-bonk-avatar/);assert.match(html,/data-bonk-skin="skin&amp;code=&quot;test&quot;"/);assert.doesNotMatch(html,/https?:/);
  assert.doesNotMatch(html,/onerror=|onload=/);
 });
+
+
+test('public profile opens the requested player rather than the signed-in account',async()=>{
+ const ui=fixture({user:{username:'Signed in',id:'1'}});let profile;
+ ui.context.api=async path=>{assert.equal(path,'/api/players/player%20id');return {player:{id:'player id',name:'Other player'},history:[{id:8}]}};
+ ui.context.renderOwnProfile=(user,record,history)=>{profile={user,record,history}};
+ await ui.context.publicPlayerProfile('player id');assert.equal(profile.user.username,'Other player');assert.equal(profile.user.id,undefined);assert.equal(profile.history[0].id,8);
+});

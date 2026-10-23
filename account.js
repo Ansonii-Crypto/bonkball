@@ -55,11 +55,17 @@ function profileAssessmentCard(h){
 }
 function renderOwnProfile(user,record,history){
  const authors=[...new Set(history.map(h=>h.assessed_by||'Not recorded'))].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
- render(`<section class="own-profile"><div class="hero own-profile-heading"><div class="account-profile">${accountAvatar(user)}<h1>${esc(user.username)}</h1></div><p>Bonk account ID: ${esc(user.id)}</p></div>${history.length?`<section aria-labelledby="ownAssessmentsTitle"><div class="profile-assessments-toolbar"><h2 id="ownAssessmentsTitle">Assessments</h2><div class="profile-assessments-controls"><label>Order<select id="profileAssessmentSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="admin-asc">Admin: A-Z</option><option value="admin-desc">Admin: Z-A</option></select></label><label>Admin<select id="profileAssessmentAdmin"><option value="">All admins</option>${authors.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join('')}</select></label></div></div><p class="meta" id="profileAssessmentCount" role="status"></p><div class="profile-assessments-grid" id="profileAssessmentCards" tabindex="0" aria-label="Assessments, scroll horizontally for more"></div></section>`:'<p>No assessments have been recorded for this username yet.</p>'}</section>`);
+ render(`<section class="own-profile"><div class="hero own-profile-heading"><div class="account-profile">${accountAvatar(user)}<h1>${esc(user.username)}</h1></div>${user.id?`<p>Bonk account ID: ${esc(user.id)}</p>`:''}</div>${history.length?`<section aria-labelledby="ownAssessmentsTitle"><div class="profile-assessments-toolbar"><h2 id="ownAssessmentsTitle">Assessments</h2><div class="profile-assessments-controls"><label>Order<select id="profileAssessmentSort"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="admin-asc">Admin: A-Z</option><option value="admin-desc">Admin: Z-A</option></select></label><label>Admin<select id="profileAssessmentAdmin"><option value="">All admins</option>${authors.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join('')}</select></label></div></div><p class="meta" id="profileAssessmentCount" role="status"></p><div class="profile-assessments-grid" id="profileAssessmentCards" tabindex="0" aria-label="Assessments, scroll horizontally for more"></div></section>`:'<p>No assessments have been recorded for this username yet.</p>'}</section>`);
  if(!history.length)return;
  const sort=document.querySelector('#profileAssessmentSort'),author=document.querySelector('#profileAssessmentAdmin'),cards=document.querySelector('#profileAssessmentCards'),count=document.querySelector('#profileAssessmentCount');
  function draw(){const visible=profileAssessmentOrder(history,sort.value,author.value);cards.innerHTML=visible.map(profileAssessmentCard).join('')||'<p>No assessments match this admin.</p>';cards.scrollLeft=0;count.textContent=`${visible.length} ${visible.length===1?'assessment':'assessments'}`}
  sort.onchange=draw;author.onchange=draw;draw();
+}
+async function publicPlayerProfile(id){
+ render('<div class="login"><h1>Profile</h1><p>Loading player profile...</p></div>');
+ const panel=V.firstElementChild;
+ try{const {player:record,history}=await api('/api/players/'+encodeURIComponent(id));if(!panel.isConnected)return;renderOwnProfile({username:record.name},record,history||[])}
+ catch(error){if(panel.isConnected)render(`<div class="login"><h1>Profile unavailable</h1><p class="error">${esc(error.message)}</p><a href="#/players">Back to players</a></div>`)}
 }
 async function ownProfile(){
  render('<div class="login"><h1>Profile</h1><p>Loading your assessments...</p></div>');
