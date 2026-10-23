@@ -71,7 +71,15 @@ test('assessment controls redraw the card order and reset horizontal scrolling',
  ui.context.document.querySelector=key=>({'#profileAssessmentSort':sort,'#profileAssessmentAdmin':author,'#profileAssessmentCards':cards,'#profileAssessmentCount':count}[key]);
  ui.context.profileAssessmentCard=h=>`<article>${h.id}</article>`;
  ui.context.renderOwnProfile({username:'Player',id:'7'},{class_name:'Weaver',overall_tier:'S'},[{id:1,assessed_at:'2026-10-20',assessed_by:'Amy'},{id:2,assessed_at:'2026-10-21',assessed_by:'Zed'}]);
- assert.match(ui.html,/>Assessments<\/h2>/);assert.equal(cards.innerHTML,'<article>2</article><article>1</article>');
+ assert.doesNotMatch(ui.html.split('ownAssessmentsTitle')[0],/Weaver/);assert.match(ui.html,/>Assessments<\/h2>/);assert.equal(cards.innerHTML,'<article>2</article><article>1</article>');
  sort.value='oldest';sort.onchange();assert.equal(cards.innerHTML,'<article>1</article><article>2</article>');
  author.value='Amy';author.onchange();assert.equal(cards.innerHTML,'<article>1</article>');assert.equal(count.textContent,'1 assessment');assert.equal(cards.scrollLeft,0);
+});
+
+
+test('expanded profile cards show attributes and notes without repeating assessment metadata',()=>{
+ const ui=fixture({user:null});ui.context.A=[['control','CTRL','Control']];ui.context.date=value=>value;ui.context.tier=()=> 'A';ui.context.cardTierBadge=()=>'<span>A</span>';
+ const html=ui.context.profileAssessmentCard({id:7,assessed_at:'2026-10-23',overall_tier:'A',total:1400,control:230,class_name:'Weaver',assessed_by:'Admin',strengths:'Close <control>'});
+ assert.equal((html.match(/Assessed by/g)||[]).length,1);assert.equal((html.match(/2026-10-23/g)||[]).length,1);
+ assert.match(html,/profile-attribute-list/);assert.match(html,/230/);assert.match(html,/Close &lt;control&gt;/);assert.match(html,/Hide assessment/);
 });
