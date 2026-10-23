@@ -1,6 +1,6 @@
 # Bonk accounts and administrator access
 
-The homepage and content navigation now show **Account**. Signed-in users see their Bonk username, an avatar containing its first character, and a dropdown with **Log out** in red. Skins are not fetched yet. The login page is `#/account`; administrator tools remain at `#/admin` and are linked from Behind the Scenes.
+The homepage and content navigation now show **Account**. Signed-in users see their Bonk username, an avatar containing its first character, and a dropdown with **Profile**, **Admin tools** for eligible accounts, and **Log out** in red. Profile opens the public assessment history whose player name matches the verified Bonk username (ignoring case and surrounding spaces), or an empty state if no matching record exists. This display match does not grant permissions. Skins are not fetched yet. The login page is `#/account`; administrator tools remain at `#/admin` and are linked from Behind the Scenes.
 
 Everyone starts with a regular user session. Only a linked administrator can unlock admin tools using that account's existing six-digit personal code. No default code exists. Ordinary accounts are never offered personal-code setup. Admin elevation lasts 30 minutes; the normal account session lasts 24 hours. Lock admin access ends elevation while retaining the Bonk login. Log out removes both privileges for that browser session.
 

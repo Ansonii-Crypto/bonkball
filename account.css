@@ -18,3 +18,6 @@
 .user-account-menu>summary:focus-visible{outline:2px solid #3577ac;outline-offset:3px}
 @media(max-width:540px){.destination-navigation [data-account-control]>a,.destination-navigation .user-account-menu>summary{padding:7px 10px}}
 @media(max-width:500px){.account-username{max-width:100px}}
+
+.user-account-options a{display:block;padding:10px 12px;font:600 14px 'Trebuchet MS',sans-serif;color:inherit;background:transparent;border:0;border-radius:5px;box-shadow:none;white-space:nowrap}
+.user-account-options a:hover{background:#42433f10}

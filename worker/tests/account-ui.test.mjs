@@ -31,11 +31,22 @@ test('an invitation cannot open setup under another Bonk identity',async()=>{
  vm.runInContext("pendingAdminSetup={id:'intended',invite:'secret'}",ui.context);
  await ui.context.accountPage({admin:true});assert.match(ui.html,/Invitation unavailable/);assert.equal(ui.loginCalls.length,0);
 });
-test('account dropdown displays an escaped initial and username, and only offers logout',()=>{
+test('account dropdown displays an escaped initial and username, and offers profile',()=>{
  const ui=fixture({user:null}),button={},menu={addEventListener(){}};let markup='';
- const container={set innerHTML(value){markup=value},querySelector:selector=>selector==='details'?menu:button};
+ const container={querySelectorAll:()=>[],set innerHTML(value){markup=value},querySelector:selector=>selector==='details'?menu:button};
  ui.context.document.querySelectorAll=()=>[container];
  ui.context.updateAccountMenus({username:'<Player>'});
  assert.match(markup,/account-avatar[^>]*>&lt;<\/span>/);assert.match(markup,/&lt;Player&gt;/);assert.match(markup,/>Log out<\/button>/);
+ assert.match(markup,/href="#\/profile"/);assert.doesNotMatch(markup,/>Admin tools</);
  assert.equal((markup.match(/<button/g)||[]).length,1);assert.equal(typeof button.onclick,'function');
+ ui.context.updateAccountMenus({username:'Admin'},{id:'admin'});assert.match(markup,/href="#\/admin">Admin tools/);
+});
+
+
+test('own profile opens the matching public assessment history, or shows an empty state',async()=>{
+ const ui=fixture({user:{username:'PLAYER',id:'7'}});let opened=null;
+ ui.context.api=async path=>path==='/api/session'?{user:{username:'PLAYER',id:'7'}}:{players:[{id:'record-7',name:'Player'}]};
+ ui.context.player=async id=>{opened=id};await ui.context.ownProfile();assert.equal(opened,'record-7');
+ opened=null;ui.context.api=async path=>path==='/api/session'?{user:{username:'PLAYER',id:'7'}}:{players:[{id:'other',name:'Other'}]};
+ await ui.context.ownProfile();assert.equal(opened,null);assert.match(ui.html,/No assessments have been recorded/);
 });

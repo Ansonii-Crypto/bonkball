@@ -156,7 +156,7 @@ function appDialog(message,{title='Please confirm',confirmLabel='Continue',cance
 function appConfirm(message,options={}){return appDialog(message,options)}
 function appAlert(message,title='Notice'){return appDialog(message,{title,alertOnly:true})}
 
-function route(){if(window.siteRouter)return window.siteRouter();let h=location.hash||'#/';if(h.startsWith('#/setup?')){openSetupLink(h);return}if(h==='#/'||h==='#'||h==='#/players')home();else if(h==='#/classes')classesPage();else if(h==='#/admin')admin();else if(h==='#/account')accountPage();else if(h.startsWith('#/player/'))player(decodeURIComponent(h.split('/')[2]))}if(!document.body.classList.contains('site-shell')){addEventListener('hashchange',route);route();}
+function route(){if(window.siteRouter)return window.siteRouter();let h=location.hash||'#/';if(h.startsWith('#/setup?')){openSetupLink(h);return}if(h==='#/'||h==='#'||h==='#/players')home();else if(h==='#/classes')classesPage();else if(h==='#/admin')admin();else if(h==='#/account')accountPage();else if(h==='#/profile')ownProfile();else if(h.startsWith('#/player/'))player(decodeURIComponent(h.split('/')[2]))}if(!document.body.classList.contains('site-shell')){addEventListener('hashchange',route);route();}
 
 
 async function accounts(){return accountPage()}

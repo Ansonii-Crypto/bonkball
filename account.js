@@ -7,7 +7,7 @@ async function accountPage({admin:wantAdmin=false}={}){
  const loadingPanel=V.firstElementChild;
  let state;try{state=await api('/api/session')}catch(error){if(version===accountPageVersion&&loadingPanel.isConnected){render(`<div class="login"><h1>Account unavailable</h1><p class="error">${esc(error.message)}</p><button id="retryAccount">Retry</button></div>`);document.querySelector('#retryAccount').onclick=()=>accountPage({admin:wantAdmin})}return}
  if(version!==accountPageVersion||!loadingPanel.isConnected)return;
- updateAccountMenus(state.user);
+ updateAccountMenus(state.user,state.admin_account);
  if(state.user){
   const account=state.admin_account;
   if(pendingAdminSetup){
@@ -31,21 +31,36 @@ async function accountPage({admin:wantAdmin=false}={}){
   finally{password.value='';button.disabled=false}
  };
 }
-function updateAccountMenus(user){
+async function ownProfile(){
+ render('<div class="login"><h1>Profile</h1><p>Loading your assessments?</p></div>');
+ const panel=V.firstElementChild;
+ try{
+  const state=await api('/api/session');if(!panel.isConnected)return;
+  if(!state.user){await accountPage();return}
+  const {players}=await api('/api/players');if(!panel.isConnected)return;
+  // Existing public assessment records are named, not linked to Bonk IDs.
+  // An exact username match is for displaying public history only, never permissions.
+  const name=state.user.username.trim().toLowerCase();
+  const record=players.find(player=>String(player.name).trim().toLowerCase()===name);
+  if(record){await player(record.id);return}
+  render(`<div class="login"><div class="account-profile"><span class="account-avatar" aria-hidden="true">${esc(Array.from(state.user.username)[0].toUpperCase())}</span><h1>${esc(state.user.username)}</h1></div><p>No assessments have been recorded for this username yet.</p><a href="#/players">Browse players</a></div>`);
+ }catch(error){if(panel.isConnected)render(`<div class="login"><h1>Profile unavailable</h1><p class="error">${esc(error.message)}</p><a href="#/account">Back to account</a></div>`)}
+}
+function updateAccountMenus(user,adminAccount=null){
  document.querySelectorAll('[data-account-control]').forEach(container=>{
   if(!user){container.innerHTML='<a href="#/account">Account</a>';return}
-  container.innerHTML=`<details class="user-account-menu"><summary><span class="account-avatar" aria-hidden="true">${esc(Array.from(user.username)[0].toUpperCase())}</span><span class="account-username">${esc(user.username)}</span><span aria-hidden="true">▾</span></summary><div class="user-account-options"><button type="button" class="account-logout">Log out</button></div></details>`;
+  container.innerHTML=`<details class="user-account-menu"><summary><span class="account-avatar" aria-hidden="true">${esc(Array.from(user.username)[0].toUpperCase())}</span><span class="account-username">${esc(user.username)}</span><span aria-hidden="true">▾</span></summary><div class="user-account-options"><a href="#/profile">Profile</a>${adminAccount?'<a href="#/admin">Admin tools</a>':''}<button type="button" class="account-logout">Log out</button></div></details>`;
   container.querySelector('.account-logout').onclick=async event=>{
    const button=event.currentTarget;button.disabled=true;
    try{await api('/api/bonk/logout',{method:'POST',body:'{}'});pendingAdminSetup=null;updateAccountMenus(null);if(location.hash==='#/account')await accountPage();else location.hash='#/account'}catch(error){msg(error.message);button.disabled=false}
   };
-  const menu=container.querySelector('details');menu.addEventListener('toggle',()=>{if(menu.open)document.querySelectorAll('.user-account-menu[open]').forEach(other=>{if(other!==menu)other.open=false})});
+  const menu=container.querySelector('details');container.querySelectorAll('a').forEach(link=>link.addEventListener('click',()=>{menu.open=false;if(location.hash===link.getAttribute('href')){if(location.hash==='#/admin')admin();else ownProfile()}}));menu.addEventListener('toggle',()=>{if(menu.open)document.querySelectorAll('.user-account-menu[open]').forEach(other=>{if(other!==menu)other.open=false})});
  });
 }
 document.addEventListener('click',event=>{document.querySelectorAll('.user-account-menu[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false})});
 document.addEventListener('keydown',event=>{if(event.key==='Escape')document.querySelectorAll('.user-account-menu[open]').forEach(menu=>{menu.open=false;menu.querySelector('summary').focus()})});
 let menuRefreshVersion=0;
-async function refreshAccountMenus(){const version=++menuRefreshVersion;try{const state=await api('/api/session');if(version===menuRefreshVersion)updateAccountMenus(state.user)}catch{if(version===menuRefreshVersion)updateAccountMenus(null)}}
+async function refreshAccountMenus(){const version=++menuRefreshVersion;try{const state=await api('/api/session');if(version===menuRefreshVersion)updateAccountMenus(state.user,state.admin_account)}catch{if(version===menuRefreshVersion)updateAccountMenus(null)}}
 window.addEventListener('accountchange',refreshAccountMenus);
 window.addEventListener('focus',refreshAccountMenus);
 refreshAccountMenus();

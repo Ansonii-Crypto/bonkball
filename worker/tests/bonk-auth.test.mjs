@@ -17,7 +17,7 @@ function request(env,path,body=null,{user,admin,headers={},method}={}){
 async function withProvider(callback){
  const original=globalThis.fetch;let next={r:'success',id:100,username:'Verified',token:'bonk-secret'};
  globalThis.fetch=async(url,options)=>{
-  assert.equal(url,'https://bonk2.io/scripts/login_legacy.php');assert.equal(options.redirect,'error');
+  assert.equal(url,'https://bonk2.io/scripts/login_legacy.php');assert.equal(options.redirect,'manual');
   const body=new URLSearchParams(options.body);assert.equal(body.get('remember'),'false');
   return Response.json(next);
  };
@@ -113,3 +113,10 @@ test('origin checks and account login throttling fail before provider authentica
  assert.equal((await request(env,'/api/bonk/login',{username:'demo',password:'test-only'})).status,429);
  env.db.close();
 }));
+
+
+test('Bonk redirects fail closed without following or forwarding credentials',async()=>{
+ const env=environment(),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async(url,options)=>{calls++;assert.equal(url,'https://bonk2.io/scripts/login_legacy.php');assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://example.com/other'}})};
+ try{const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});assert.equal(response.status,502);assert.match((await response.json()).error,/redirected/);assert.equal(calls,1);assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0)}finally{globalThis.fetch=original;env.db.close()}
+});

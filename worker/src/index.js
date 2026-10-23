@@ -14,7 +14,8 @@ async function session(r,e){let t=getCookie(r),user=await identity(r,e);if(!t||!
 function bonkId(value){return /^(0|[1-9][0-9]{0,15})$/.test(String(value??''))&&Number.isSafeInteger(Number(value))&&Number(value)>0?String(value):null}
 async function bonkAuthenticate(username,password,origin){
  let response;
- try{response=await fetch('https://bonk2.io/scripts/login_legacy.php',{method:'POST',redirect:'error',signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','Origin':origin},body:new URLSearchParams({username,password,remember:'false'})})}catch{return {error:'Unable to reach Bonk securely. Try again later.',status:502}}
+ try{response=await fetch('https://bonk2.io/scripts/login_legacy.php',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','Origin':origin},body:new URLSearchParams({username,password,remember:'false'})})}catch{return {error:'Unable to reach Bonk securely. Try again later.',status:502}}
+ if(response.status>=300&&response.status<400)return {error:'Bonk redirected the login request. No credentials were forwarded to the redirect destination.',status:502};
  if(!response.ok)return {error:response.status===429?'Bonk is rate-limiting sign-ins. Please wait.':'Bonk rejected the connection. Try again later or sign in on bonk.io.',status:response.status===429?429:502};
  // Bound the response without logging or storing passwords or provider tokens.
  const reader=response.body.getReader();let chunks=[],size=0;
