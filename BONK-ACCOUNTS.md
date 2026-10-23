@@ -60,4 +60,11 @@ npx wrangler d1 execute player-database --remote --file=./migrations/0011_accoun
 npx wrangler deploy
 ```
 
-Publish the updated account.js and account.css, then sign out and sign in again. Existing sessions without a saved skin show the initial until the next successful Bonk login. The selected slot is read from activeAvatarNumber (or its lowercase spelling); zero maps to the first slot, following Bonk Leagues' skin manager. Invalid or missing skin data never blocks login. The display URL uses only the selected avatar code, encoded as a query parameter. This feature does not update your skin on Bonk.
+Publish the updated account.js and account.css, then sign out and sign in again. Existing sessions without a saved skin show the initial until the next successful Bonk login. The selected slot is read from activeAvatarNumber (or its lowercase spelling); zero maps to the first slot, following Bonk Leagues' skin manager. Invalid or missing skin data never blocks login. The browser decodes the selected avatar code locally and produces an SVG data URL from assets/skins/shapes.json. This feature does not update your skin on Bonk.
+
+
+### Local skin renderer
+
+Publish `skin-renderer.js`, `assets/skins/shapes.json`, and the updated `index.html` and `account.js` together. This replaces the external renderer without a Worker deployment or database migration. Saved active skin codes work immediately; only accounts with no saved skin need to sign in again.
+
+The decoder accepts JSON, base64 and URL-encoded version-2 binary skin codes. It validates colours, transforms, layer count and shape IDs, then draws the layers with a circular clip. Invalid/unsupported skins or missing assets leave the username initial visible. Local shape assets and up to 32 rendered avatar URLs are cached in memory. Shape attribution is in `assets/skins/README.md`. Future Bonk encoding/shape changes may require updating the decoder or asset bundle.

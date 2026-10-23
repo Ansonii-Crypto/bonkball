@@ -85,10 +85,10 @@ test('expanded profile cards show attributes and notes without repeating assessm
 });
 
 
-test('avatar renders an encoded skin URL with a persistent initial fallback',()=>{
+test('avatar supplies escaped skin data to the local renderer with an initial fallback',()=>{
  const ui=fixture({user:null});
  assert.doesNotMatch(ui.context.accountAvatar({username:'Player'}),/<img/);
  const html=ui.context.accountAvatar({username:'Player',avatar_code:'skin&code="test"'});
- assert.match(html,/account-avatar-initial/);assert.match(html,/data-bonk-avatar/);assert.match(html,/skin%26code%3D%22test%22/);assert.match(html,/referrerpolicy="no-referrer"/);
+ assert.match(html,/account-avatar-initial/);assert.match(html,/data-bonk-avatar/);assert.match(html,/data-bonk-skin="skin&amp;code=&quot;test&quot;"/);assert.doesNotMatch(html,/https?:/);
  assert.doesNotMatch(html,/onerror=|onload=/);
 });

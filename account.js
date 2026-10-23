@@ -1,8 +1,7 @@
 function accountAvatar(user){
  const initial=esc(Array.from(user.username||'?')[0].toUpperCase());
  const code=typeof user.avatar_code==='string'&&user.avatar_code.length<=20000?user.avatar_code:null;
- const src=code?'https://bonkleagues.io/api/avatar.svg?skinCode='+encodeURIComponent(code):null;
- return `<span class="account-avatar" aria-hidden="true"><span class="account-avatar-initial">${initial}</span>${src?`<img data-bonk-avatar src="${esc(src)}" alt="" referrerpolicy="no-referrer" decoding="async">`:''}</span>`;
+ return `<span class="account-avatar" aria-hidden="true"><span class="account-avatar-initial">${initial}</span>${code?`<img data-bonk-avatar data-bonk-skin="${esc(code)}" alt="" decoding="async">`:''}</span>`;
 }
 document.addEventListener('load',event=>{if(event.target.matches?.('[data-bonk-avatar]'))event.target.parentElement.classList.add('has-skin')},true);
 document.addEventListener('error',event=>{if(event.target.matches?.('[data-bonk-avatar]')){event.target.parentElement.classList.remove('has-skin');event.target.remove()}},true);
