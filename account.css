@@ -14,6 +14,10 @@
 .user-account-options .account-logout{display:block;width:100%;margin:0;padding:10px 12px;font:600 14px 'Trebuchet MS',sans-serif;text-align:left;background:transparent;color:#b32e37;border:0;box-shadow:none;border-radius:5px}
 .user-account-options .account-logout:hover{background:#b32e3710}
 .account-profile{display:flex;align-items:center;gap:12px}.account-profile .account-avatar{width:44px;height:44px;font-size:24px}
+.login>.account-profile{justify-content:center;gap:14px;margin-bottom:24px;font-size:clamp(32px,6vw,52px)}
+.login>.account-profile h1{min-width:0;margin:0;font-size:inherit;line-height:1.1;overflow-wrap:anywhere}
+.login>.account-profile .account-avatar{width:1.15em;height:1.15em;font-size:inherit}
+.login>.account-profile .account-avatar-initial{font-size:.55em}
 #bonkLogin label{display:block;margin:16px 0 7px}#bonkLogin input{width:100%}
 .user-account-menu>summary:focus-visible{outline:2px solid #3577ac;outline-offset:3px}
 @media(max-width:540px){.destination-navigation [data-account-control]>a,.destination-navigation .user-account-menu>summary{padding:7px 10px}}
