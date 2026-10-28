@@ -74,7 +74,7 @@ The decoder accepts JSON, base64 and URL-encoded version-2 binary skin codes. It
 
 Player records have a public profile thread. Each assessment has a separate Comments expander, available both in the player assessment view and in profile assessment cards. Anyone can read comments; a verified Bonk session is required to post. Profiles without a player record do not yet have a comment target.
 
-Authors can delete their own comments. Administrators must unlock their admin session to remove other users' comments. These permissions and author identity are enforced by the Worker, regardless of browser-supplied fields. Posts are plain text, limited to 2,000 characters and five per account per minute. Comment pages contain at most 20 entries, newest first, with Load older comments. Deleting a profile's player record or an assessment also removes its associated comments. Editing an assessment retains its existing thread.
+Authors can delete their own comments. Administrators must unlock their admin session to remove other users' comments. Deletion redacts the stored body and author association, replacing the display with a deleted placeholder while retaining replies. New replies are allowed only on a live immediate parent; live children of deleted parents can still receive replies. These permissions and author identity are enforced by the Worker, regardless of browser-supplied fields. Posts are plain text, limited to 2,000 characters and five per account per minute. Comment pages contain at most 20 entries, newest first, with Load older comments. Deleting a profile's player record or an assessment also removes its associated comments. Editing an assessment retains its existing thread.
 
 From worker/, apply the migration before deploying:
 
@@ -84,3 +84,10 @@ npx wrangler deploy
 ```
 
 Publish comments.js, comments.css, and the updated index.html, account.js and app.js together. No Bonk passwords or provider tokens are stored with comments. Public comment responses include author usernames but not their Bonk account IDs. Assessment comment threads load only when their Comments expander opens.
+
+
+### Nested replies and public avatars
+
+Apply `worker/migrations/0013_comment_replies.sql` once before deploying the updated Worker. The migration preserves existing comments and adds parent links and redacted deletion. Each thread paginates its root comments separately from each comment's replies. The server rejects cross-thread parent IDs and rechecks the parent during insertion to prevent replies racing deletion. Profile and assessment deletion still remove the whole associated thread.
+
+Public profiles and live comment authors use saved active skins via the local renderer. Profile lookup matches the player name to a known Bonk username, without returning a Bonk ID. Users without a saved skin retain the initial fallback. Deleted comments return no author name, skin, original text, or timestamp. The Delete hover has a translucent red background.

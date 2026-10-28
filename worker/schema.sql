@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS bonk_login_attempts(identity_hash TEXT PRIMARY KEY,wi
 -- Cosmetic data only; never used for account identity or permissions.
 CREATE TABLE IF NOT EXISTS bonk_account_avatars(bonk_id TEXT PRIMARY KEY REFERENCES bonk_users(bonk_id) ON DELETE CASCADE,skin_code TEXT);
 
-CREATE TABLE IF NOT EXISTS comments(id INTEGER PRIMARY KEY AUTOINCREMENT,player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,assessment_id INTEGER REFERENCES assessments(id) ON DELETE CASCADE,author_bonk_id TEXT NOT NULL REFERENCES bonk_users(bonk_id),body TEXT NOT NULL CHECK(length(body) BETWEEN 1 AND 2000),created_at TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS idx_comments_thread ON comments(player_id,assessment_id,id DESC);
+CREATE TABLE IF NOT EXISTS comments(id INTEGER PRIMARY KEY AUTOINCREMENT,player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,assessment_id INTEGER REFERENCES assessments(id) ON DELETE CASCADE,parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,author_bonk_id TEXT REFERENCES bonk_users(bonk_id),body TEXT,created_at TEXT NOT NULL,deleted_at TEXT,CHECK((deleted_at IS NULL AND author_bonk_id IS NOT NULL AND body IS NOT NULL AND length(body) BETWEEN 1 AND 2000) OR (deleted_at IS NOT NULL AND author_bonk_id IS NULL AND body IS NULL)));
+CREATE INDEX IF NOT EXISTS idx_comments_thread ON comments(player_id,assessment_id,parent_id,id DESC);
+CREATE INDEX IF NOT EXISTS idx_comments_parent ON comments(parent_id,id DESC);
 CREATE TABLE IF NOT EXISTS comment_post_attempts(bonk_id TEXT PRIMARY KEY REFERENCES bonk_users(bonk_id),window INTEGER NOT NULL,attempts INTEGER NOT NULL);

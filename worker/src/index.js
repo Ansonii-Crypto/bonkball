@@ -197,18 +197,24 @@ if(commentThread){
  if(m==='GET'){
   const cursor=u.searchParams.get('before'),before=cursor===null?Number.MAX_SAFE_INTEGER:Number(cursor);
   if(!Number.isSafeInteger(before)||before<1)return J({error:'Invalid comment cursor.'},400,o,e);
-  const admin=await session(r,e),rows=await e.DB.prepare('SELECT c.id,c.author_bonk_id,c.body,c.created_at,u.username AS author_name FROM comments c JOIN bonk_users u ON u.bonk_id=c.author_bonk_id WHERE c.player_id=? AND c.assessment_id IS ? AND c.id<? ORDER BY c.id DESC LIMIT 21').bind(playerId,assessmentId,before).all();
+  const parentParam=u.searchParams.get('parent'),parent=parentParam===null?null:Number(parentParam);
+  if(parent!==null&&(!Number.isSafeInteger(parent)||parent<1))return J({error:'Invalid parent comment.'},400,o,e);
+  if(parent!==null&&!await e.DB.prepare('SELECT id FROM comments WHERE id=? AND player_id=? AND assessment_id IS ?').bind(parent,playerId,assessmentId).first())return J({error:'Parent comment not found in this thread.'},404,o,e);
+  const admin=await session(r,e),rows=await e.DB.prepare('SELECT c.id,c.parent_id,c.author_bonk_id,c.body,c.created_at,c.deleted_at,u.username AS author_name,v.skin_code AS avatar_code,(SELECT COUNT(*) FROM comments children WHERE children.parent_id=c.id) AS reply_count FROM comments c LEFT JOIN bonk_users u ON u.bonk_id=c.author_bonk_id LEFT JOIN bonk_account_avatars v ON v.bonk_id=c.author_bonk_id WHERE c.player_id=? AND c.assessment_id IS ? AND c.parent_id IS ? AND c.id<? ORDER BY c.id DESC LIMIT 21').bind(playerId,assessmentId,parent,before).all();
   const page=rows.results.slice(0,20);
-  return J({comments:page.map(row=>({id:row.id,author_name:row.author_name,body:row.body,created_at:row.created_at,can_delete:!!user&&(row.author_bonk_id===user.bonk_id||!!admin)})),can_post:!!user,viewer:user?{username:user.username}:null,next_cursor:rows.results.length>20?page.at(-1).id:null},200,o,e);
+  return J({comments:page.map(row=>({id:row.id,parent_id:row.parent_id,deleted:!!row.deleted_at,author_name:row.deleted_at?null:row.author_name,avatar_code:row.deleted_at?null:row.avatar_code,body:row.deleted_at?null:row.body,created_at:row.deleted_at?null:row.created_at,reply_count:row.reply_count,can_reply:!!user&&!row.deleted_at,can_delete:!!user&&!row.deleted_at&&(row.author_bonk_id===user.bonk_id||!!admin)})),can_post:!!user,viewer:user?{username:user.username}:null,next_cursor:rows.results.length>20?page.at(-1).id:null},200,o,e);
  }
  if(m==='POST'){
   if(!user)return J({error:'Sign in with Bonk to comment.'},401,o,e);
   const b=await r.json().catch(()=>null),body=typeof b?.body==='string'?b.body.trim():'';
   if(!body||body.length>2000)return J({error:'Comments must contain 1 to 2,000 characters.'},400,o,e);
+  const parent=b?.parent_id===undefined||b.parent_id===null?null:b.parent_id;
+  if(parent!==null&&(!Number.isSafeInteger(parent)||parent<1))return J({error:'Invalid parent comment.'},400,o,e);
+  if(parent!==null&&!await e.DB.prepare('SELECT id FROM comments WHERE id=? AND player_id=? AND assessment_id IS ? AND deleted_at IS NULL').bind(parent,playerId,assessmentId).first())return J({error:'You can only reply to an existing, non-deleted comment in this thread.'},409,o,e);
   const bucket=Math.floor(Date.now()/60000),attempt=await e.DB.prepare('INSERT INTO comment_post_attempts(bonk_id,window,attempts) VALUES(?,?,1) ON CONFLICT(bonk_id) DO UPDATE SET window=excluded.window,attempts=CASE WHEN comment_post_attempts.window=excluded.window THEN comment_post_attempts.attempts+1 ELSE 1 END RETURNING attempts').bind(user.bonk_id,bucket).first();
   if(attempt.attempts>5)return J({error:'You can post five comments per minute. Please wait before posting again.'},429,o,e);
-  const comment=await e.DB.prepare('INSERT INTO comments(player_id,assessment_id,author_bonk_id,body,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM players WHERE id=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM assessments WHERE id=? AND player_id=?)) RETURNING id').bind(playerId,assessmentId,user.bonk_id,body,now(),playerId,assessmentId,assessmentId,playerId).first();
-  if(!comment)return J({error:'This player or assessment was removed.'},404,o,e);
+  const comment=await e.DB.prepare('INSERT INTO comments(player_id,assessment_id,parent_id,author_bonk_id,body,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM players WHERE id=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM assessments WHERE id=? AND player_id=?)) AND (? IS NULL OR EXISTS(SELECT 1 FROM comments WHERE id=? AND player_id=? AND assessment_id IS ? AND deleted_at IS NULL)) RETURNING id').bind(playerId,assessmentId,parent,user.bonk_id,body,now(),playerId,assessmentId,assessmentId,playerId,parent,parent,playerId,assessmentId).first();
+  if(!comment)return J({error:'The target was removed or the parent comment was deleted. Your reply was not posted.'},409,o,e);
   return J({ok:true,id:comment.id},201,o,e);
  }
  return J({error:'Method not allowed.'},405,o,e);
@@ -217,9 +223,10 @@ const commentDelete=p.match(/^\/api\/comments\/(\d+)$/);
 if(commentDelete&&m==='DELETE'){
  const user=await identity(r,e);if(!user)return J({error:'Sign in first.'},401,o,e);
  const id=Number(commentDelete[1]);if(!Number.isSafeInteger(id)||id<1)return J({error:'Invalid comment.'},400,o,e);
- const comment=await e.DB.prepare('SELECT id,author_bonk_id FROM comments WHERE id=?').bind(id).first();if(!comment)return J({error:'Comment not found.'},404,o,e);
+ const comment=await e.DB.prepare('SELECT id,author_bonk_id,deleted_at FROM comments WHERE id=?').bind(id).first();if(!comment)return J({error:'Comment not found.'},404,o,e);
+ if(comment.deleted_at)return J({ok:true},200,o,e);
  const moderator=await session(r,e);if(comment.author_bonk_id!==user.bonk_id&&!moderator)return J({error:'You can only delete your own comments.'},403,o,e);
- await e.DB.prepare('DELETE FROM comments WHERE id=? AND (author_bonk_id=? OR ?=1)').bind(id,user.bonk_id,moderator?1:0).run();return J({ok:true},200,o,e);
+ await e.DB.prepare('UPDATE comments SET body=NULL,author_bonk_id=NULL,deleted_at=? WHERE id=? AND (author_bonk_id=? OR ?=1)').bind(now(),id,user.bonk_id,moderator?1:0).run();return J({ok:true},200,o,e);
 }
 if(p==='/api/players'&&m==='GET'){let x=await e.DB.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE').all();return J({players:x.results},200,o,e)}
 if(p==='/api/players'&&m==='POST'){let q=await guard(r,e,o);if(q)return q;let b=await r.json();b.overall_tier=calculatedTier(b);let err=valid(b);if(err)return J({error:err},400,o,e);if(await duplicatePlayer(e,b.name.trim()))return J({error:duplicateNameError},409,o,e);let i=uuid(),t=now();await e.DB.batch([e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(i,b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,0,t,t),snap(e,{...b,id:i}),audit(e,await session(r,e),'created_player',{...b,id:i,name:b.name.trim()})]);return J({ok:true,id:i},201,o,e)}
@@ -234,7 +241,7 @@ e.DB.prepare(`UPDATE players SET (assessed_at,overall_tier,control,execution,def
 e.DB.prepare("UPDATE players SET assessed_at='',overall_tier='B',control=0,execution=0,defending=0,reaction_time=0,chemistry=0,game_sense=0,class_name='',playstyle='',strengths='',weaknesses='',updated_at=? WHERE id=? AND locked=0 AND NOT EXISTS(SELECT 1 FROM assessments WHERE player_id=?)").bind(now(),id,id)
 ]);if(!result[0].meta?.changes)return J({error:'Assessment was removed or player was locked. Nothing was deleted.'},423,o,e);return J({ok:true},200,o,e)}
 let mt=p.match(/^\/api\/players\/([^/]+)(?:\/(lock|unlock))?$/);if(!mt)return J({error:'Not found.'},404,o,e);let id=decodeURIComponent(mt[1]),act=mt[2];
-if(m==='GET'){let pl=await e.DB.prepare('SELECT * FROM players WHERE id=?').bind(id).first();if(!pl)return J({error:'Player not found.'},404,o,e);let hs=await e.DB.prepare("SELECT a.*,(SELECT l.actor_name FROM activity_logs l WHERE l.player_id=a.player_id AND l.assessment_id=a.id AND l.action IN ('created_player','updated_player') ORDER BY l.id DESC LIMIT 1) AS assessed_by FROM assessments a WHERE a.player_id=? ORDER BY a.assessed_at,a.id").bind(id).all();return J({player:pl,history:hs.results},200,o,e)}
+if(m==='GET'){let pl=await e.DB.prepare('SELECT * FROM players WHERE id=?').bind(id).first();if(!pl)return J({error:'Player not found.'},404,o,e);let hs=await e.DB.prepare("SELECT a.*,(SELECT l.actor_name FROM activity_logs l WHERE l.player_id=a.player_id AND l.assessment_id=a.id AND l.action IN ('created_player','updated_player') ORDER BY l.id DESC LIMIT 1) AS assessed_by FROM assessments a WHERE a.player_id=? ORDER BY a.assessed_at,a.id").bind(id).all();let avatar=await e.DB.prepare('SELECT v.skin_code FROM bonk_users u JOIN bonk_account_avatars v ON v.bonk_id=u.bonk_id WHERE u.username=? COLLATE NOCASE').bind(pl.name.trim()).first();return J({player:pl,history:hs.results,profile:{username:pl.name,avatar_code:avatar?.skin_code||null}},200,o,e)}
 let q=await guard(r,e,o);if(q)return q;let pl=await e.DB.prepare('SELECT * FROM players WHERE id=?').bind(id).first();if(!pl)return J({error:'Player not found.'},404,o,e);
 if(act==='lock'&&m==='POST'){await e.DB.batch([e.DB.prepare('UPDATE players SET locked=1,updated_at=? WHERE id=?').bind(now(),id),await playerAudit(r,e,'locked_player',pl)]);return J({ok:true},200,o,e)}
 if(act==='unlock'&&m==='POST'){let b=await r.json().catch(()=>({}));let user=await session(r,e),c=await credential(e,user.id);if(!c?.code_hash||await codeHash(String(b.code||''),c.salt)!==c.code_hash)return J({error:'Administrative code is incorrect.'},403,o,e);await e.DB.batch([e.DB.prepare('UPDATE players SET locked=0,updated_at=? WHERE id=?').bind(now(),id),await playerAudit(r,e,'unlocked_player',pl)]);return J({ok:true},200,o,e)}

@@ -74,7 +74,7 @@ function renderOwnProfile(user,record,history){
 async function publicPlayerProfile(id){
  render('<div class="login"><h1>Profile</h1><p>Loading player profile...</p></div>');
  const panel=V.firstElementChild;
- try{const {player:record,history}=await api('/api/players/'+encodeURIComponent(id));if(!panel.isConnected)return;renderOwnProfile({username:record.name},record,history||[])}
+ try{const {player:record,history,profile}=await api('/api/players/'+encodeURIComponent(id));if(!panel.isConnected)return;renderOwnProfile({username:record.name,avatar_code:profile?.avatar_code||null},record,history||[])}
  catch(error){if(panel.isConnected)render(`<div class="login"><h1>Profile unavailable</h1><p class="error">${esc(error.message)}</p><a href="#/players">Back to players</a></div>`)}
 }
 async function ownProfile(){

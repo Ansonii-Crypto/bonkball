@@ -9,3 +9,13 @@
 .assessment-comments .comment-form-actions{align-items:flex-start;flex-direction:column}.assessment-comments .comment-thread h2{font-size:15px}
 .own-profile>.comment-thread{max-width:760px;margin-top:36px;padding-top:24px;border-top:2px solid #42433f30}
 @media(max-width:540px){.comment-form-actions{align-items:flex-start;flex-direction:column}}
+
+.comment-heading .account-avatar{width:28px;height:28px;font-size:14px}
+.comment-heading .comment-delete:hover{background:#ad403b20;border-radius:4px}
+.comment-replies{margin:12px 0 0 14px;padding-left:14px;border-left:2px solid #42433f30}.comment-replies.comment-replies-flat{margin-left:0;padding-left:0;border-left:0}
+.comment-deleted{font-size:14px;font-style:italic;color:var(--muted)}
+.comment .comment-reply,.comment .comment-replies-toggle{display:inline-block;margin:8px 0 0;padding:5px 8px;background:transparent;border:0;box-shadow:none;color:var(--muted);font-size:12px;transform:none}
+.comment .comment-reply:hover,.comment .comment-replies-toggle:hover{background:#42433f10;border-radius:4px}
+.comment-reply-form-slot:empty{display:none}.comment-reply-form{margin:12px 0}.comment-reply-form label{font-size:13px;display:block}
+
+.comment-thread [hidden]{display:none!important}
