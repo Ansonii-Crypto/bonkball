@@ -93,3 +93,11 @@ test('parent navigation targets the exact content element, respects reduced moti
  ctx.focusCommentParent(parent);assert.equal(scrolled.behavior,'auto');assert.equal(scrolled.block,'center');assert.equal(focused,true);assert.equal(parent.tabIndex,-1);assert.equal(classes.has('comment-parent-highlight'),true);
  timer();assert.equal(classes.has('comment-parent-highlight'),false);
 });
+
+
+test('comment timestamps expose a full-date tooltip with unique accessible IDs',()=>{
+ const ctx=context(),first=ctx.commentTimestampHTML('2026-11-14T12:00:00'),second=ctx.commentTimestampHTML('2026-11-14T12:00:00');
+ assert.match(first,/Saturday 14 November 2026/);assert.match(first,/role="tooltip"/);assert.match(first,/tabindex="0"/);
+ assert.match(first,/aria-describedby="comment-date-1"/);assert.match(first,/id="comment-date-1"/);assert.match(second,/id="comment-date-2"/);
+ assert.equal(ctx.commentTimestampHTML('invalid'),'');
+});

@@ -43,3 +43,11 @@
 @media(max-width:540px){.own-profile>.comment-thread,.assessment-comments.comment-panel{padding:17px}.assessment-primary-column{gap:20px}}
 
 .comment-thread .comment-reply-form .comment-form-actions{flex-direction:row;justify-content:flex-start;align-items:center;flex-wrap:wrap;gap:10px}
+
+.comment-timestamp{position:relative;display:inline-flex}
+.comment-timestamp time{cursor:help}
+.comment-date-tooltip{position:absolute;z-index:10;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);width:max-content;max-width:min(280px,calc(100vw - 32px));padding:9px 12px;border-radius:6px;background:rgba(15,18,20,.9);color:#fff;font-size:12px;line-height:1.4;font-weight:normal;text-align:center;box-shadow:0 3px 10px #0002;pointer-events:none;visibility:hidden;opacity:0;transition:opacity .15s}
+.comment-date-tooltip:after{content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);border:6px solid transparent;border-bottom:0;border-top-color:rgba(15,18,20,.9)}
+.comment-timestamp:hover .comment-date-tooltip,.comment-timestamp:focus-within .comment-date-tooltip{visibility:visible;opacity:1}
+.comment-timestamp time:focus-visible{outline:2px solid #3577ac;outline-offset:3px;border-radius:2px}
+@media(prefers-reduced-motion:reduce){.comment-date-tooltip{transition:none}}

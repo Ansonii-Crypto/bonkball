@@ -31,10 +31,17 @@ function commentMentionHTML(body,viewer=null){
  }
  return result+esc(text.slice(offset));
 }
+let commentTimestampSequence=0;
+function commentTimestampHTML(value){
+ const instant=new Date(value);if(!Number.isFinite(instant.getTime()))return '';
+ const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).formatToParts(instant).map(part=>[part.type,part.value]));
+ const fullDate=`${parts.weekday} ${parts.day} ${parts.month} ${parts.year}`,id='comment-date-'+(++commentTimestampSequence);
+ return `<span class="comment-timestamp meta"><time tabindex="0" datetime="${esc(value)}" aria-describedby="${id}">${esc(instant.toLocaleString())}</time><span class="comment-date-tooltip" id="${id}" role="tooltip">${esc(fullDate)}</span></span>`;
+}
 function commentContentHTML(comment,viewer=null){
  if(comment.deleted)return '<p class="comment-deleted">This comment has been deleted.</p><div class="comment-actions"><span class="comment-replies-slot"></span></div>';
  const avatar=typeof accountAvatar==='function'?accountAvatar({username:comment.author_name,avatar_code:comment.avatar_code}):`<span class="account-avatar" aria-hidden="true">${esc(Array.from(comment.author_name||'?')[0])}</span>`;
- return `<div class="comment-heading">${avatar}<strong>${esc(comment.author_name)}</strong><time class="meta" datetime="${esc(comment.created_at)}">${esc(new Date(comment.created_at).toLocaleString())}</time>${comment.can_delete?'<button type="button" class="comment-delete" aria-label="Delete comment">Delete</button>':''}</div><p class="comment-body">${commentMentionHTML(comment.body,viewer)}</p><div class="comment-actions">${comment.can_reply?'<button type="button" class="comment-reply">Reply</button>':''}<span class="comment-replies-slot"></span></div><div class="comment-reply-form-slot"></div>`;
+ return `<div class="comment-heading">${avatar}<strong>${esc(comment.author_name)}</strong>${commentTimestampHTML(comment.created_at)}${comment.can_delete?'<button type="button" class="comment-delete" aria-label="Delete comment">Delete</button>':''}</div><p class="comment-body">${commentMentionHTML(comment.body,viewer)}</p><div class="comment-actions">${comment.can_reply?'<button type="button" class="comment-reply">Reply</button>':''}<span class="comment-replies-slot"></span></div><div class="comment-reply-form-slot"></div>`;
 }
 function commentParentReferenceText(parent){
  if(!parent||parent.deleted)return 'Replying to a deleted comment.';
