@@ -29,10 +29,12 @@ test('homepage shell routes real players, profiles, classes, admin and setup',as
 
 test('assessment links select that assessment rather than always selecting the latest',()=>{
  const source=readFileSync(new URL('../../app.js',import.meta.url),'utf8');
- const elements={};for(const key of ['#mainAssessment','#openAssessmentHistory','#returnLatestAssessment','#assessmentSelectionSummary','#profileOverall','#profileClass','#assessmentPlaystyle'])elements[key]={};
- const context=vm.createContext({document:{querySelector:key=>elements[key]},assessmentDetails:h=>'Assessment '+h.id,assessmentPlaystyle:()=>'',date:value=>value});
+ const elements={};for(const key of ['#mainAssessment','#openAssessmentHistory','#returnLatestAssessment','#assessmentSelectionSummary','#profileOverall','#profileClass','#assessmentPlaystyle','#assessmentComments'])elements[key]={};
+ const context=vm.createContext({document:{querySelector:key=>elements[key]},assessmentDetails:h=>'Assessment '+h.id,assessmentPlaystyle:()=>'',date:value=>value,commentThreadHTML:(_player,id)=>'Thread '+id,mountCommentThreads(){}});
  vm.runInContext(source.split('\n').find(line=>line.startsWith('function assessmentOrder(')),context);
  vm.runInContext(source.slice(source.indexOf('function wireAssessmentHistory('),source.indexOf('function assessmentPlaystyle(')),context);
- context.wireAssessmentHistory([{id:1,assessed_at:'2026-10-20',overall_tier:'A'},{id:2,assessed_at:'2026-10-21',overall_tier:'S'}],null,1);
+ context.wireAssessmentHistory([{id:1,player_id:'p',assessed_at:'2026-10-20',overall_tier:'A'},{id:2,player_id:'p',assessed_at:'2026-10-21',overall_tier:'S'}],null,1);
  assert.match(elements['#mainAssessment'].innerHTML,/Selected assessment/);assert.match(elements['#mainAssessment'].innerHTML,/Assessment 1/);assert.equal(elements['#profileOverall'].textContent,'A');
+ assert.doesNotMatch(elements['#mainAssessment'].innerHTML,/Thread|assessment-comments/);assert.match(elements['#assessmentComments'].innerHTML,/comment-panel/);assert.match(elements['#assessmentComments'].innerHTML,/Thread 1/);
+ elements['#returnLatestAssessment'].onclick();assert.match(elements['#assessmentComments'].innerHTML,/Thread 2/);
 });

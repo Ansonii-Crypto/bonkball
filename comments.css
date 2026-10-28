@@ -7,7 +7,7 @@
 .comment-thread .comment-error{margin:10px 0}.comment-sign-in{text-decoration:underline;text-underline-offset:3px}
 .assessment-comments{margin-top:16px;padding-top:12px;border-top:1px solid #42433f30}.assessment-comments>summary{font-size:14px;font-weight:bold;cursor:pointer}.assessment-comments .comment-thread{margin-top:16px}
 .assessment-comments .comment-form-actions{align-items:flex-start;flex-direction:column}.assessment-comments .comment-thread h2{font-size:15px}
-.own-profile>.comment-thread{max-width:760px;margin-top:36px;padding-top:24px;border-top:2px solid #42433f30}
+.own-profile>.comment-thread{max-width:760px;margin-top:36px;padding:24px}
 @media(max-width:540px){.comment-form-actions{align-items:flex-start;flex-direction:column}}
 
 .comment-heading .account-avatar{width:28px;height:28px;font-size:14px}
@@ -32,3 +32,12 @@
 .comment-content.comment-parent-highlight{background:#e8b75b30;box-shadow:0 0 0 5px #e8b75b30}
 @media(max-width:540px){.comment-replies.comment-replies-mobile-flat{margin-left:0;padding-left:0;border-left:0}.comment .comment-parent-mobile-only{display:block}}
 @media(prefers-reduced-motion:reduce){.comment-content{transition:none}}
+
+/* Comments have their own surface, separate from the profile and assessment. */
+.own-profile>.comment-thread,.assessment-comments.comment-panel{background:#edf0e4;border:2px solid var(--line);border-radius:8px;box-shadow:0 4px 0 #42433f35}
+.assessment-primary-column{display:grid;gap:24px;min-width:0;align-self:start}.assessment-primary-column>#assessmentComments:empty{display:none}
+.assessment-comments.comment-panel{margin:0;padding:22px}
+.assessment-comments.comment-panel>summary{font-size:18px}
+.assessment-comments.comment-panel>.comment-thread{margin-top:18px;padding:0}
+.assessment-comments.comment-panel>.comment-thread>h2{display:none}
+@media(max-width:540px){.own-profile>.comment-thread,.assessment-comments.comment-panel{padding:17px}.assessment-primary-column{gap:20px}}
