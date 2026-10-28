@@ -110,7 +110,7 @@ async function loadCommentThread(thread){
     });
     content.querySelector('.comment-reply')?.addEventListener('click',()=>{
      const slot=content.querySelector('.comment-reply-form-slot');if(slot.children.length){slot.querySelector('textarea').focus();return}
-     slot.innerHTML='<form class="comment-reply-form"><label>Reply<textarea name="body" maxlength="2000" rows="3" required></textarea></label><div class="comment-form-actions"><button type="submit">Post reply</button><button type="button" class="secondary comment-cancel-reply">Cancel</button></div></form>';
+     slot.innerHTML='<form class="comment-reply-form"><label>Reply<textarea name="body" maxlength="2000" rows="3" required></textarea></label><div class="comment-form-actions"><button type="button" class="secondary comment-cancel-reply">Cancel</button><button type="submit">Post reply</button></div></form>';
      const form=slot.querySelector('form');form.elements.body.focus();form.querySelector('.comment-cancel-reply').onclick=()=>{slot.innerHTML=''};
      form.onsubmit=async event=>{event.preventDefault();const text=form.elements.body,body=text.value.trim(),button=form.querySelector('[type="submit"]');if(!body){error.textContent='Write a reply before posting.';return}button.disabled=true;error.textContent='';
       try{await api(path,{method:'POST',body:JSON.stringify({body,parent_id:comment.id})});slot.innerHTML='';comment.reply_count=(comment.reply_count||0)+1;await showReplies(true)}catch(problem){error.textContent=problem.message;button.disabled=false}
