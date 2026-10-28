@@ -167,3 +167,8 @@ body.homepage-shell{display:block;height:100vh;height:100dvh}
 
 /* Hold and drag to play on the header; body scrolling and navigation remain available. */
 .homepage-header{touch-action:none}
+
+/* Programmatic route focus and scroll containers do not need selection outlines. */
+#view:focus,#scrollArea:focus,.surface-scroll:focus,.page-surface:focus{outline:none}
+/* F11 must not turn the last mouse click into a keyboard focus ring. */
+html[data-focus-input="pointer"] :is(button,a,summary,[tabindex]):focus-visible{outline:none!important}

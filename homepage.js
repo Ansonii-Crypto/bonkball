@@ -9,7 +9,7 @@ homepageScroller.addEventListener('scroll',updateHomepageHeader,{passive:true});
 new ResizeObserver(updateHomepageHeader).observe(homepageHeader);
 const initialHash=location.hash||'#/';
 const initialPreload=(initialHash==='#/'||initialHash==='#')?home().then(()=>{currentView='players'}):Promise.resolve();
-function closeDestination(){++revealVersion;revealAnimation?.cancel();revealAnimation=null;openPage=null;appSurface.classList.remove('is-open');appSurface.style.clipPath='circle(0px at 50% 50%)';appSurface.inert=true;homepageScroller.inert=false}
+function closeDestination(){++revealVersion;revealAnimation?.cancel();revealAnimation=null;openPage=null;appSurface.classList.remove('is-open');appSurface.style.clipPath='circle(0px at 50% 50%)';appSurface.inert=true;homepageScroller.inert=false;homepageScroller.style.visibility=''}
 function updateDestinationNavigation(){const page=location.hash.startsWith('#/player/')?'players':location.hash.slice(2);appSurface.querySelectorAll('nav a').forEach(link=>{if(link.getAttribute('href')==='#/'+page)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current')})}
 async function navigateSite(hash,button=null,animate=false){
  const version=++revealVersion;
@@ -29,7 +29,7 @@ async function navigateSite(hash,button=null,animate=false){
  else{closeDestination();return}
  if(version!==revealVersion)return;
  appSurface.dataset.page=page;appSurface.classList.add('is-open');appScroller.scrollTop=0;openPage=page;updateDestinationNavigation();
- const finish=()=>{if(version!==revealVersion)return;appSurface.style.clipPath='none';appSurface.inert=false;homepageScroller.inert=true;V.tabIndex=-1;V.focus({preventScroll:true})};
+ const finish=()=>{if(version!==revealVersion)return;appSurface.style.clipPath='none';appSurface.inert=false;homepageScroller.inert=true;homepageScroller.style.visibility='hidden';V.tabIndex=-1;V.focus({preventScroll:true})};
  if(!animate||matchMedia('(prefers-reduced-motion: reduce)').matches){finish();return}
  const rect=button.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
  const radius=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y))+2;

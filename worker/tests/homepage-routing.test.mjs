@@ -14,7 +14,7 @@ test('homepage shell routes real players, profiles, classes, admin and setup',as
  const ctx=vm.createContext({window:{},document:doc,location:{hash:'#/'},ResizeObserver:class{observe(){}},addEventListener(){},V:{focus(){}},home:async()=>calls.push('players'),classesPage:()=>calls.push('classes'),admin:async()=>calls.push('admin'),accountPage:async()=>calls.push('account'),ownProfile:async()=>calls.push('own-profile'),publicPlayerProfile:async id=>calls.push('public-profile:'+id),player:async(id,assessmentId)=>calls.push('profile:'+id+(assessmentId?':'+assessmentId:'')),openSetupLink:async hash=>calls.push('setup:'+hash),matchMedia:()=>({matches:true})});
  const source=readFileSync(new URL('../../homepage.js',import.meta.url),'utf8');
  vm.runInContext(source.slice(0,source.indexOf('const recentList=')),ctx);
- await ctx.navigateSite('#/players');assert.ok(calls.includes('players'));
+ await ctx.navigateSite('#/players');assert.ok(calls.includes('players'));assert.equal(scroller.style.visibility,'hidden');
  await ctx.navigateSite('#/classes');assert.equal(calls.at(-1),'classes');
  await ctx.navigateSite('#/profile/player%20id');assert.equal(calls.at(-1),'public-profile:player id');
  await ctx.navigateSite('#/profile');assert.equal(calls.at(-1),'own-profile');
@@ -23,7 +23,7 @@ test('homepage shell routes real players, profiles, classes, admin and setup',as
  await ctx.navigateSite('#/player/live-player/assessment/7');assert.equal(calls.at(-1),'profile:live-player:7');
  await ctx.navigateSite('#/player/live-player');assert.equal(calls.at(-1),'profile:live-player');
  await ctx.navigateSite('#/setup?account=test&invite=test');assert.match(calls.at(-1),/^setup:/);
- await ctx.navigateSite('#/');assert.equal(surface.inert,true);assert.equal(scroller.inert,false);
+ await ctx.navigateSite('#/');assert.equal(surface.inert,true);assert.equal(scroller.inert,false);assert.equal(scroller.style.visibility,'');
 });
 
 
@@ -37,4 +37,14 @@ test('assessment links select that assessment rather than always selecting the l
  assert.match(elements['#mainAssessment'].innerHTML,/Selected assessment/);assert.match(elements['#mainAssessment'].innerHTML,/Assessment 1/);assert.equal(elements['#profileOverall'].textContent,'A');
  assert.doesNotMatch(elements['#mainAssessment'].innerHTML,/Thread|assessment-comments/);assert.match(elements['#assessmentComments'].innerHTML,/comment-panel/);assert.match(elements['#assessmentComments'].innerHTML,/Thread 1/);
  elements['#returnLatestAssessment'].onclick();assert.match(elements['#assessmentComments'].innerHTML,/Thread 2/);
+});
+
+
+test('fullscreen shortcuts do not convert pointer focus into keyboard focus',()=>{
+ const handlers={},dataset={};
+ const context=vm.createContext({document:{documentElement:{dataset},addEventListener:(type,handler)=>{handlers[type]=handler}}});
+ vm.runInContext(readFileSync(new URL('../../focus.js',import.meta.url),'utf8'),context);
+ handlers.pointerdown();assert.equal(dataset.focusInput,'pointer');handlers.keydown({key:'F11'});assert.equal(dataset.focusInput,'pointer');
+ handlers.keydown({key:'Tab'});assert.equal(dataset.focusInput,'keyboard');handlers.keydown({key:'F11'});assert.equal(dataset.focusInput,'keyboard');
+ handlers.pointerdown();assert.equal(dataset.focusInput,'pointer');handlers.keydown({key:'ArrowDown'});assert.equal(dataset.focusInput,'keyboard');
 });
