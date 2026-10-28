@@ -68,3 +68,19 @@ Publish the updated account.js and account.css, then sign out and sign in again.
 Publish `skin-renderer.js`, `assets/skins/shapes.json`, and the updated `index.html` and `account.js` together. This replaces the external renderer without a Worker deployment or database migration. Saved active skin codes work immediately; only accounts with no saved skin need to sign in again.
 
 The decoder accepts JSON, base64 and URL-encoded version-2 binary skin codes. It validates colours, transforms, layer count and shape IDs, then draws the layers with a circular clip. Invalid/unsupported skins or missing assets leave the username initial visible. Local shape assets and up to 32 rendered avatar URLs are cached in memory. Shape attribution is in `assets/skins/README.md`. Future Bonk encoding/shape changes may require updating the decoder or asset bundle.
+
+
+## Profile and assessment comments
+
+Player records have a public profile thread. Each assessment has a separate Comments expander, available both in the player assessment view and in profile assessment cards. Anyone can read comments; a verified Bonk session is required to post. Profiles without a player record do not yet have a comment target.
+
+Authors can delete their own comments. Administrators must unlock their admin session to remove other users' comments. These permissions and author identity are enforced by the Worker, regardless of browser-supplied fields. Posts are plain text, limited to 2,000 characters and five per account per minute. Comment pages contain at most 20 entries, newest first, with Load older comments. Deleting a profile's player record or an assessment also removes its associated comments. Editing an assessment retains its existing thread.
+
+From worker/, apply the migration before deploying:
+
+```powershell
+npx wrangler d1 execute player-database --remote --file=./migrations/0012_comments.sql
+npx wrangler deploy
+```
+
+Publish comments.js, comments.css, and the updated index.html, account.js and app.js together. No Bonk passwords or provider tokens are stored with comments. Public comment responses include author usernames but not their Bonk account IDs. Assessment comment threads load only when their Comments expander opens.

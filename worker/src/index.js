@@ -187,6 +187,40 @@ if(p==='/api/player-drafts'||p.startsWith('/api/player-drafts/')){
  }
  return J({error:'Method not allowed.'},405,o,e);
 }
+const commentThread=p.match(/^\/api\/players\/([^/]+)(?:\/assessments\/(\d+))?\/comments$/);
+if(commentThread){
+ const playerId=decodeURIComponent(commentThread[1]),assessmentId=commentThread[2]?Number(commentThread[2]):null;
+ if(assessmentId!==null&&(!Number.isSafeInteger(assessmentId)||assessmentId<1))return J({error:'Invalid assessment.'},400,o,e);
+ if(!await e.DB.prepare('SELECT id FROM players WHERE id=?').bind(playerId).first())return J({error:'Player not found.'},404,o,e);
+ if(assessmentId!==null&&!await e.DB.prepare('SELECT id FROM assessments WHERE id=? AND player_id=?').bind(assessmentId,playerId).first())return J({error:'Assessment not found.'},404,o,e);
+ const user=await identity(r,e);
+ if(m==='GET'){
+  const cursor=u.searchParams.get('before'),before=cursor===null?Number.MAX_SAFE_INTEGER:Number(cursor);
+  if(!Number.isSafeInteger(before)||before<1)return J({error:'Invalid comment cursor.'},400,o,e);
+  const admin=await session(r,e),rows=await e.DB.prepare('SELECT c.id,c.author_bonk_id,c.body,c.created_at,u.username AS author_name FROM comments c JOIN bonk_users u ON u.bonk_id=c.author_bonk_id WHERE c.player_id=? AND c.assessment_id IS ? AND c.id<? ORDER BY c.id DESC LIMIT 21').bind(playerId,assessmentId,before).all();
+  const page=rows.results.slice(0,20);
+  return J({comments:page.map(row=>({id:row.id,author_name:row.author_name,body:row.body,created_at:row.created_at,can_delete:!!user&&(row.author_bonk_id===user.bonk_id||!!admin)})),can_post:!!user,viewer:user?{username:user.username}:null,next_cursor:rows.results.length>20?page.at(-1).id:null},200,o,e);
+ }
+ if(m==='POST'){
+  if(!user)return J({error:'Sign in with Bonk to comment.'},401,o,e);
+  const b=await r.json().catch(()=>null),body=typeof b?.body==='string'?b.body.trim():'';
+  if(!body||body.length>2000)return J({error:'Comments must contain 1 to 2,000 characters.'},400,o,e);
+  const bucket=Math.floor(Date.now()/60000),attempt=await e.DB.prepare('INSERT INTO comment_post_attempts(bonk_id,window,attempts) VALUES(?,?,1) ON CONFLICT(bonk_id) DO UPDATE SET window=excluded.window,attempts=CASE WHEN comment_post_attempts.window=excluded.window THEN comment_post_attempts.attempts+1 ELSE 1 END RETURNING attempts').bind(user.bonk_id,bucket).first();
+  if(attempt.attempts>5)return J({error:'You can post five comments per minute. Please wait before posting again.'},429,o,e);
+  const comment=await e.DB.prepare('INSERT INTO comments(player_id,assessment_id,author_bonk_id,body,created_at) SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM players WHERE id=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM assessments WHERE id=? AND player_id=?)) RETURNING id').bind(playerId,assessmentId,user.bonk_id,body,now(),playerId,assessmentId,assessmentId,playerId).first();
+  if(!comment)return J({error:'This player or assessment was removed.'},404,o,e);
+  return J({ok:true,id:comment.id},201,o,e);
+ }
+ return J({error:'Method not allowed.'},405,o,e);
+}
+const commentDelete=p.match(/^\/api\/comments\/(\d+)$/);
+if(commentDelete&&m==='DELETE'){
+ const user=await identity(r,e);if(!user)return J({error:'Sign in first.'},401,o,e);
+ const id=Number(commentDelete[1]);if(!Number.isSafeInteger(id)||id<1)return J({error:'Invalid comment.'},400,o,e);
+ const comment=await e.DB.prepare('SELECT id,author_bonk_id FROM comments WHERE id=?').bind(id).first();if(!comment)return J({error:'Comment not found.'},404,o,e);
+ const moderator=await session(r,e);if(comment.author_bonk_id!==user.bonk_id&&!moderator)return J({error:'You can only delete your own comments.'},403,o,e);
+ await e.DB.prepare('DELETE FROM comments WHERE id=? AND (author_bonk_id=? OR ?=1)').bind(id,user.bonk_id,moderator?1:0).run();return J({ok:true},200,o,e);
+}
 if(p==='/api/players'&&m==='GET'){let x=await e.DB.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE').all();return J({players:x.results},200,o,e)}
 if(p==='/api/players'&&m==='POST'){let q=await guard(r,e,o);if(q)return q;let b=await r.json();b.overall_tier=calculatedTier(b);let err=valid(b);if(err)return J({error:err},400,o,e);if(await duplicatePlayer(e,b.name.trim()))return J({error:duplicateNameError},409,o,e);let i=uuid(),t=now();await e.DB.batch([e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(i,b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,0,t,t),snap(e,{...b,id:i}),audit(e,await session(r,e),'created_player',{...b,id:i,name:b.name.trim()})]);return J({ok:true,id:i},201,o,e)}
 let assessmentDelete=p.match(/^\/api\/players\/([^/]+)\/assessments\/(\d+)$/);
