@@ -24,7 +24,7 @@ async function navigateSite(hash,button=null,animate=false){
  else if(hash==='#/account'){await accountPage();currentView='account'}
  else if(hash==='#/admin'){await admin();currentView='admin'}
  else if(hash==='#/classes'){classesPage();currentView='classes'}
- else if(hash.startsWith('#/player/')){await player(decodeURIComponent(hash.split('/')[2]));currentView='profile'}
+ else if(hash.startsWith('#/player/')){await player(decodeURIComponent(hash.split('/')[2]),hash.split('/')[4]);currentView='profile'}
  else if(hash==='#/players'){if(currentView!=='players')await home();currentView='players'}
  else{closeDestination();return}
  if(version!==revealVersion)return;

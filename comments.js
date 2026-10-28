@@ -13,10 +13,28 @@ function mountCommentThreads(root=V){
   if(disclosure){disclosure.addEventListener('toggle',()=>{if(disclosure.open)start()});if(disclosure.open)start()}else start();
  });
 }
-function commentContentHTML(comment){
- if(comment.deleted)return '<p class="comment-deleted">This comment has been deleted.</p>';
+function commentMentionHTML(body,viewer=null){
+ const text=String(body||''),username=viewer?.username;
+ if(!username)return esc(text);
+ let base=0xe8b75b;
+ try{if(viewer.avatar_code&&window.BonkSkinRenderer)base=window.BonkSkinRenderer.decode(viewer.avatar_code).bc}catch{}
+ if(!Number.isInteger(base)||base<0||base>0xffffff)base=0xe8b75b;
+ const background='#'+base.toString(16).padStart(6,'0');
+ const channels=[base>>16&255,base>>8&255,base&255].map(n=>{const v=n/255;return v<=0.04045?v/12.92:((v+0.055)/1.055)**2.4});
+ const foreground=channels[0]*.2126+channels[1]*.7152+channels[2]*.0722>.179?'#17231f':'#fffdf5';
+ const escaped=Array.from(username).map(ch=>('.*+?^${}()|[]'+String.fromCharCode(92)).includes(ch)?String.fromCharCode(92)+ch:ch).join('');
+ const expression=new RegExp(String.raw`(^|[^\p{L}\p{N}_@])(@${escaped})(?![\p{L}\p{N}_])`,'giu');
+ let result='',offset=0;
+ for(const match of text.matchAll(expression)){
+  const start=match.index+match[1].length;result+=esc(text.slice(offset,start));
+  result+=`<mark class="comment-mention" style="--mention-bg:${background};--mention-ink:${foreground}">${esc(match[2])}</mark>`;offset=start+match[2].length;
+ }
+ return result+esc(text.slice(offset));
+}
+function commentContentHTML(comment,viewer=null){
+ if(comment.deleted)return '<p class="comment-deleted">This comment has been deleted.</p><div class="comment-actions"><span class="comment-replies-slot"></span></div>';
  const avatar=typeof accountAvatar==='function'?accountAvatar({username:comment.author_name,avatar_code:comment.avatar_code}):`<span class="account-avatar" aria-hidden="true">${esc(Array.from(comment.author_name||'?')[0])}</span>`;
- return `<div class="comment-heading">${avatar}<strong>${esc(comment.author_name)}</strong><time class="meta" datetime="${esc(comment.created_at)}">${esc(new Date(comment.created_at).toLocaleString())}</time>${comment.can_delete?'<button type="button" class="comment-delete" aria-label="Delete comment">Delete</button>':''}</div><p class="comment-body">${esc(comment.body)}</p>${comment.can_reply?'<button type="button" class="comment-reply">Reply</button>':''}<div class="comment-reply-form-slot"></div>`;
+ return `<div class="comment-heading">${avatar}<strong>${esc(comment.author_name)}</strong><time class="meta" datetime="${esc(comment.created_at)}">${esc(new Date(comment.created_at).toLocaleString())}</time>${comment.can_delete?'<button type="button" class="comment-delete" aria-label="Delete comment">Delete</button>':''}</div><p class="comment-body">${commentMentionHTML(comment.body,viewer)}</p><div class="comment-actions">${comment.can_reply?'<button type="button" class="comment-reply">Reply</button>':''}<span class="comment-replies-slot"></span></div><div class="comment-reply-form-slot"></div>`;
 }
 async function loadCommentThread(thread){
  const playerId=thread.dataset.commentPlayer,assessmentId=thread.dataset.commentAssessment;
@@ -49,7 +67,8 @@ async function loadCommentThread(thread){
     catch(problem){loaded=false;replies.innerHTML='<p class="error">Replies could not be loaded.</p>';error.textContent=problem.message}
    }
    function drawContent(){
-    content.innerHTML=commentContentHTML(comment);
+    content.innerHTML=commentContentHTML(comment,data.viewer);
+    content.querySelector('.comment-replies-slot').append(toggle);
     content.querySelector('.comment-delete')?.addEventListener('click',async event=>{
      const button=event.currentTarget;if(!await appConfirm('Delete this comment? Replies will remain.',{title:'Delete comment',confirmLabel:'Delete'}))return;
      button.disabled=true;error.textContent='';

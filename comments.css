@@ -19,3 +19,8 @@
 .comment-reply-form-slot:empty{display:none}.comment-reply-form{margin:12px 0}.comment-reply-form label{font-size:13px;display:block}
 
 .comment-thread [hidden]{display:none!important}
+.comment-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.comment-replies-slot{display:inline-flex}
+.comment-mention{position:relative;display:inline-block;overflow:hidden;vertical-align:bottom;padding:0 4px;border-radius:4px;background:var(--mention-bg,#e8b75b);color:var(--mention-ink,#17231f);font-weight:bold;line-height:inherit}
+.comment-mention:after{content:'';position:absolute;inset:-40%;pointer-events:none;background:linear-gradient(135deg,transparent 35%,#ffffff55 50%,transparent 65%);transform:translate(-140%,-140%);animation:mention-shine 12s linear infinite}
+@keyframes mention-shine{0%,88%{transform:translate(-140%,-140%)}100%{transform:translate(140%,140%)}}
+@media(prefers-reduced-motion:reduce){.comment-mention:after{animation:none;display:none}}

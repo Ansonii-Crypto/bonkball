@@ -93,7 +93,7 @@ test('deleted parents are redacted, retain replies, and reject new direct replie
 test('comment and public profile avatars use stored skins without exposing Bonk IDs',async()=>{
  const {db,request}=await setup();db.prepare('INSERT INTO bonk_account_avatars VALUES(?,?)').run('1','saved-avatar');db.prepare('UPDATE players SET name=? WHERE id=?').run('Author','p');
  await request('/api/players/p/comments',{user:'1',body:{body:'With avatar'}});
- const comments=await (await request('/api/players/p/comments')).json();assert.equal(comments.comments[0].avatar_code,'saved-avatar');assert.equal('author_bonk_id' in comments.comments[0],false);
+ const comments=await (await request('/api/players/p/comments')).json();assert.equal(comments.comments[0].avatar_code,'saved-avatar');const own=await (await request('/api/players/p/comments',{user:'1'})).json();assert.equal(own.viewer.avatar_code,'saved-avatar');assert.equal('author_bonk_id' in comments.comments[0],false);
  const profile=await (await request('/api/players/p')).json();assert.equal(profile.profile.avatar_code,'saved-avatar');assert.equal(profile.profile.username,'Author');assert.equal('id' in profile.profile,false);
  db.close();
 });

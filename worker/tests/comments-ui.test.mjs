@@ -21,7 +21,7 @@ function threadFixture(comment){
  const form={elements:{body:input},querySelector:()=>button},list={children:articles,querySelector:()=>null,append:article=>articles.push(article)};
  const branch={querySelector:key=>key==='.comment-branch-list'?list:more};
  const thread={isConnected:true,dataset:{commentPlayer:'p',commentAssessment:'7'},querySelector:key=>({'.comment-list':branch,'.comment-error':error,'.comment-form':form}[key])};
- const content={querySelector:key=>key==='.comment-delete'&&comment.can_delete?deleteButton:null},toggle={setAttribute(){}},replies={hidden:true,classList:{add(){}}};
+ const content={querySelector:key=>key==='.comment-replies-slot'?{append(){}}:key==='.comment-delete'&&comment.can_delete?deleteButton:null},toggle={setAttribute(){}},replies={hidden:true,classList:{add(){}}};
  const article={querySelector:key=>({'.comment-content':content,'.comment-replies-toggle':toggle,'.comment-replies':replies}[key])};
  const ctx=context({URLSearchParams,appConfirm:async()=>true,document:{createElement:()=>article},api:async(path,options)=>{
   if(options?.method==='DELETE')return {ok:true};
@@ -53,4 +53,19 @@ test('deleting a rendered parent preserves its already-open replies',async()=>{
 test('live comment headings include the author avatar',()=>{
  const ctx=context({accountAvatar:user=>`<span data-skin="${user.avatar_code}"></span>`});
  assert.match(ctx.commentContentHTML({author_name:'Author',avatar_code:'saved-skin',body:'Hello',created_at:'2026-10-28',can_reply:true}),/data-skin="saved-skin"/);
+});
+
+
+test('mentions highlight only the signed-in username using their skin base colour',()=>{
+ const ctx=context({window:{BonkSkinRenderer:{decode:()=>({bc:0x123456})}}});
+ const html=ctx.commentMentionHTML('Hello @PLAYER, @Player2, mail@Player and @Other. @Player!',{username:'Player',avatar_code:'skin'});
+ assert.equal((html.match(/<mark /g)||[]).length,2);assert.match(html,/--mention-bg:#123456/);assert.match(html,/--mention-ink:#fffdf5/);
+ assert.match(html,/@Player2/);assert.match(html,/mail@Player/);assert.doesNotMatch(ctx.commentMentionHTML('@Player',null),/<mark/);
+});
+
+test('mention matching handles spaces and regex characters without allowing HTML',()=>{
+ const ctx=context({window:{BonkSkinRenderer:{decode:()=>({bc:0xffffff})}}});
+ const html=ctx.commentMentionHTML('<script>@A+B (x)</script> @AxB (x)',{username:'A+B (x)',avatar_code:'skin'});
+ assert.equal((html.match(/<mark /g)||[]).length,1);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.match(html,/--mention-ink:#17231f/);
+ assert.match(ctx.commentMentionHTML('@Player',{username:'Player',avatar_code:'broken'}),/<mark/);
 });

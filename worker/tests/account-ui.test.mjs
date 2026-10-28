@@ -89,11 +89,11 @@ test('single profile dropdown sorts, filters and keeps the admin flyout interact
 
 
 
-test('expanded profile cards show attributes and notes without repeating assessment metadata',()=>{
- const ui=fixture({user:null});ui.context.A=[['control','CTRL','Control']];ui.context.date=value=>value;ui.context.tier=()=> 'A';ui.context.cardTierBadge=()=>'<span>A</span>';
- const html=ui.context.profileAssessmentCard({id:7,assessed_at:'2026-10-23',overall_tier:'A',total:1400,control:230,class_name:'Weaver',assessed_by:'Admin',strengths:'Close <control>'});
- assert.equal((html.match(/Assessed by/g)||[]).length,1);assert.equal((html.match(/2026-10-23/g)||[]).length,1);
- assert.match(html,/profile-attribute-list/);assert.match(html,/230/);assert.match(html,/Close &lt;control&gt;/);assert.match(html,/Hide assessment/);
+test('profile assessment cards link to the specific assessment without inline comments',()=>{
+ const ui=fixture({user:null});ui.context.A=[['control','CTRL','Control']];ui.context.date=value=>value;ui.context.cardTierBadge=()=>'<span>A</span>';
+ ui.context.commentThreadHTML=()=>'<div>Wrong inline thread</div>';
+ const html=ui.context.profileAssessmentCard({id:7,player_id:'player id',assessed_at:'2026-10-23',overall_tier:'A',total:1400,class_name:'Weaver',assessed_by:'Admin'});
+ assert.match(html,/href="#\/player\/player%20id\/assessment\/7"/);assert.match(html,/View assessment/);assert.doesNotMatch(html,/assessment-comments|Wrong inline thread/);
 });
 
 
