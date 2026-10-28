@@ -36,6 +36,28 @@ function commentContentHTML(comment,viewer=null){
  const avatar=typeof accountAvatar==='function'?accountAvatar({username:comment.author_name,avatar_code:comment.avatar_code}):`<span class="account-avatar" aria-hidden="true">${esc(Array.from(comment.author_name||'?')[0])}</span>`;
  return `<div class="comment-heading">${avatar}<strong>${esc(comment.author_name)}</strong><time class="meta" datetime="${esc(comment.created_at)}">${esc(new Date(comment.created_at).toLocaleString())}</time>${comment.can_delete?'<button type="button" class="comment-delete" aria-label="Delete comment">Delete</button>':''}</div><p class="comment-body">${commentMentionHTML(comment.body,viewer)}</p><div class="comment-actions">${comment.can_reply?'<button type="button" class="comment-reply">Reply</button>':''}<span class="comment-replies-slot"></span></div><div class="comment-reply-form-slot"></div>`;
 }
+function commentParentReferenceText(parent){
+ if(!parent||parent.deleted)return 'Replying to a deleted comment.';
+ const text=String(parent.body||'').replace(/\s+/g,' ').trim(),characters=Array.from(text);
+ const excerpt=characters.slice(0,80).join('')+(characters.length>80?'...':'');
+ return `Replying to ${parent.author_name||'Unknown author'}: "${excerpt}"`;
+}
+function commentParentReferenceHTML(parent,depth){
+ if(!parent||depth<2)return '';
+ return `<button type="button" class="comment-parent-reference${depth===2?' comment-parent-mobile-only':''}">${esc(commentParentReferenceText(parent))}</button>`;
+}
+const commentParentHighlights=new WeakMap();
+function focusCommentParent(content){
+ if(!content?.isConnected)return;
+ const reduced=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+ content.scrollIntoView({block:'center',behavior:reduced?'auto':'smooth'});
+ content.tabIndex=-1;content.focus({preventScroll:true});
+ clearTimeout(commentParentHighlights.get(content));content.classList.add('comment-parent-highlight');
+ commentParentHighlights.set(content,setTimeout(()=>{content.classList.remove('comment-parent-highlight');commentParentHighlights.delete(content)},2000));
+}
+function refreshCommentParentReferences(parent){
+ for(const button of parent.references){if(!button.isConnected){parent.references.delete(button);continue}button.textContent=commentParentReferenceText(parent.comment)}
+}
 async function loadCommentThread(thread){
  const playerId=thread.dataset.commentPlayer,assessmentId=thread.dataset.commentAssessment;
  const path='/api/players/'+encodeURIComponent(playerId)+(assessmentId?'/assessments/'+assessmentId:'')+'/comments';
@@ -44,26 +66,30 @@ async function loadCommentThread(thread){
   thread.innerHTML=`<h2>${assessmentId?'Comments':'Profile comments'}</h2>${data.can_post?`<form class="comment-form"><label>Comment as <strong>${esc(data.viewer.username)}</strong><textarea name="body" maxlength="2000" rows="3" placeholder="Write a comment..." required></textarea></label><div class="comment-form-actions"><span class="meta">2,000 characters maximum</span><button type="submit">Post comment</button></div></form>`:'<p class="meta"><a class="comment-sign-in" href="#/account">Sign in with Bonk</a> to leave a comment.</p>'}<p class="comment-error error" role="status" aria-live="polite"></p><div class="comment-list"></div>`;
   const error=thread.querySelector('.comment-error');
   function pagePath(parent,cursor=null){const query=new URLSearchParams();if(parent)query.set('parent',parent);if(cursor)query.set('before',cursor);return path+(query.size?'?'+query:'')}
-  function populateBranch(container,page,parent=null,depth=0){
+  function populateBranch(container,page,parent=null,depth=0,parentReference=null){
    container.innerHTML='<div class="comment-branch-list"></div><button type="button" class="secondary comment-more" hidden>Load older comments</button>';
    const list=container.querySelector('.comment-branch-list'),more=container.querySelector('.comment-more');let cursor=page.next_cursor;
    function append(comments){
     if(!list.children.length&&!comments.length){list.innerHTML='<p class="meta comment-empty">No comments yet.</p>';return}
-    list.querySelector('.comment-empty')?.remove();comments.forEach(comment=>list.append(createComment(comment,depth)));
+    list.querySelector('.comment-empty')?.remove();comments.forEach(comment=>list.append(createComment(comment,depth,parentReference)));
    }
    append(page.comments);more.hidden=!cursor;
    more.onclick=async()=>{if(!cursor)return;more.disabled=true;error.textContent='';try{const next=await api(pagePath(parent,cursor));if(!thread.isConnected)return;append(next.comments);cursor=next.next_cursor;more.hidden=!cursor}catch(problem){error.textContent=problem.message}finally{more.disabled=false}};
   }
-  function createComment(comment,depth){
+  function createComment(comment,depth,parentReference=null){
    const article=document.createElement('article');article.className='comment';
-   article.innerHTML='<div class="comment-content"></div><button type="button" class="comment-replies-toggle" aria-expanded="false"></button><div class="comment-replies" hidden></div>';
+   article.innerHTML=(parentReference?commentParentReferenceHTML(parentReference.comment,depth):'')+'<div class="comment-content"></div><button type="button" class="comment-replies-toggle" aria-expanded="false"></button><div class="comment-replies" hidden></div>';
    const content=article.querySelector('.comment-content'),toggle=article.querySelector('.comment-replies-toggle'),replies=article.querySelector('.comment-replies');
+   const reference=article.querySelector('.comment-parent-reference');
+   if(reference&&parentReference){parentReference.references.add(reference);reference.onclick=()=>focusCommentParent(parentReference.content)}
+   const ownReference={get comment(){return comment},content,references:new Set()};
    if(depth>=3)replies.classList.add('comment-replies-flat');let loaded=false;
+   if(depth>=1)replies.classList.add('comment-replies-mobile-flat');
    function updateToggle(){toggle.textContent=`${replies.hidden?'Show':'Hide'} replies (${comment.reply_count||0})`;toggle.hidden=!comment.reply_count;toggle.setAttribute('aria-expanded',String(!replies.hidden))}
    async function showReplies(refresh=false){
     replies.hidden=false;updateToggle();if(loaded&&!refresh)return;
     replies.innerHTML='<p class="meta">Loading replies...</p>';
-    try{const page=await api(pagePath(comment.id));if(!thread.isConnected)return;populateBranch(replies,page,comment.id,depth+1);loaded=true}
+    try{const page=await api(pagePath(comment.id));if(!thread.isConnected)return;populateBranch(replies,page,comment.id,depth+1,ownReference);loaded=true}
     catch(problem){loaded=false;replies.innerHTML='<p class="error">Replies could not be loaded.</p>';error.textContent=problem.message}
    }
    function drawContent(){
@@ -72,7 +98,7 @@ async function loadCommentThread(thread){
     content.querySelector('.comment-delete')?.addEventListener('click',async event=>{
      const button=event.currentTarget;if(!await appConfirm('Delete this comment? Replies will remain.',{title:'Delete comment',confirmLabel:'Delete'}))return;
      button.disabled=true;error.textContent='';
-     try{await api('/api/comments/'+comment.id,{method:'DELETE'});comment={...comment,deleted:true,body:null,author_name:null,avatar_code:null,can_reply:false,can_delete:false};drawContent()}
+     try{await api('/api/comments/'+comment.id,{method:'DELETE'});comment={...comment,deleted:true,body:null,author_name:null,avatar_code:null,can_reply:false,can_delete:false};drawContent();refreshCommentParentReferences(ownReference)}
      catch(problem){error.textContent=problem.message;button.disabled=false}
     });
     content.querySelector('.comment-reply')?.addEventListener('click',()=>{

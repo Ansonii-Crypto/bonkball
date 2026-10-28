@@ -69,3 +69,27 @@ test('mention matching handles spaces and regex characters without allowing HTML
  assert.equal((html.match(/<mark /g)||[]).length,1);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.match(html,/--mention-ink:#17231f/);
  assert.match(ctx.commentMentionHTML('@Player',{username:'Player',avatar_code:'broken'}),/<mark/);
 });
+
+
+test('deep reply references distinguish different comments by the same author and escape content',()=>{
+ const ctx=context(),first={author_name:'Alex',body:'First comment'},second={author_name:'Alex',body:'Second comment'};
+ assert.notEqual(ctx.commentParentReferenceText(first),ctx.commentParentReferenceText(second));
+ assert.equal(ctx.commentParentReferenceHTML(first,1),'');assert.match(ctx.commentParentReferenceHTML(first,2),/comment-parent-mobile-only/);
+ assert.doesNotMatch(ctx.commentParentReferenceHTML(first,3),/comment-parent-mobile-only/);
+ const html=ctx.commentParentReferenceHTML({author_name:'<Alex>',body:'<script>danger</script>'},4);assert.match(html,/&lt;Alex&gt;/);assert.doesNotMatch(html,/<script>/);
+ assert.ok(ctx.commentParentReferenceText({author_name:'Alex',body:'a'.repeat(100)}).endsWith('..."'));
+});
+
+test('deleting a parent updates its reference labels without exposing the old author or text',()=>{
+ const ctx=context(),button={isConnected:true,textContent:'Old author and text'},detached={isConnected:false};
+ const parent={comment:{deleted:true,author_name:'Old author',body:'Old text'},references:new Set([button,detached])};
+ ctx.refreshCommentParentReferences(parent);assert.equal(button.textContent,'Replying to a deleted comment.');assert.equal(parent.references.size,1);
+});
+
+test('parent navigation targets the exact content element, respects reduced motion and clears its highlight',()=>{
+ let timer,focused=false,scrolled;const classes=new Set();
+ const ctx=context({matchMedia:()=>({matches:true}),clearTimeout(){},setTimeout(callback){timer=callback;return 1}});
+ const parent={isConnected:true,scrollIntoView:options=>{scrolled=options},focus:()=>{focused=true},classList:{add:value=>classes.add(value),remove:value=>classes.delete(value)}};
+ ctx.focusCommentParent(parent);assert.equal(scrolled.behavior,'auto');assert.equal(scrolled.block,'center');assert.equal(focused,true);assert.equal(parent.tabIndex,-1);assert.equal(classes.has('comment-parent-highlight'),true);
+ timer();assert.equal(classes.has('comment-parent-highlight'),false);
+});

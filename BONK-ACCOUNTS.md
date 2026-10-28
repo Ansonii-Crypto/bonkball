@@ -98,3 +98,8 @@ Public profiles and live comment authors use saved active skins via the local re
 Reply and Show/Hide replies share one action row. Comments mentioning the signed-in user's exact @username (case-insensitive, including names with spaces) highlight only that mention. Email-like text and longer usernames do not match. The highlight uses the saved active skin's base colour, with contrasting text and a 12-second shine. Missing/invalid skins use a warm fallback colour. Reduced-motion preferences disable the shine. Mentions are display-only; no notification inbox or email is generated.
 
 The public Bonk Leagues skin history is based on skins observed in public games, not a guaranteed current active-skin lookup. No dependency on that service was added. Users without a saved skin still show their initial until they sign in.
+
+
+### Deep reply navigation
+
+Indentation stops after three steps on desktop and one step on phones. Deeper replies show a clickable excerpt of the exact parent comment, not just the author's name. Clicking scrolls to and focuses that parent's content and highlights it for two seconds. Deleted parents are labelled without their former text or author, including when deleted while replies are already open. Reduced-motion preferences disable smooth scrolling and highlight transitions. This is frontend-only; no migration or Worker deployment is needed.
