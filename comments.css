@@ -41,3 +41,5 @@
 .assessment-comments.comment-panel>.comment-thread{margin-top:18px;padding:0}
 .assessment-comments.comment-panel>.comment-thread>h2{display:none}
 @media(max-width:540px){.own-profile>.comment-thread,.assessment-comments.comment-panel{padding:17px}.assessment-primary-column{gap:20px}}
+
+.comment-thread .comment-reply-form .comment-form-actions{flex-direction:row;justify-content:flex-start;align-items:center;flex-wrap:wrap;gap:10px}
