@@ -34,7 +34,7 @@
 @media(prefers-reduced-motion:reduce){.comment-content{transition:none}}
 
 /* Comments have their own surface, separate from the profile and assessment. */
-.own-profile>.comment-thread,.assessment-comments.comment-panel{background:#edf0e4;border:2px solid var(--line);border-radius:8px;box-shadow:0 4px 0 #42433f35}
+.own-profile>.comment-thread,.assessment-comments.comment-panel{background:var(--p);border:3px solid var(--line);border-radius:8px;box-shadow:0 6px 0 #42433f,0 9px 14px #42433f15}
 .assessment-primary-column{display:grid;gap:24px;min-width:0;align-self:start}.assessment-primary-column>#assessmentComments:empty{display:none}
 .assessment-comments.comment-panel{margin:0;padding:22px}
 .assessment-comments.comment-panel>summary{font-size:18px}
