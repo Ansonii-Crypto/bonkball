@@ -114,3 +114,93 @@ test('reply migration preserves existing comments and supports redaction',async(
  db.exec("UPDATE comments SET body=NULL,author_bonk_id=NULL,deleted_at='2026-10-28' WHERE id=77;INSERT INTO comments(player_id,parent_id,author_bonk_id,body,created_at) VALUES('p',77,'1','Reply','2026-10-28')");
  assert.equal(db.prepare('SELECT parent_id FROM comments ORDER BY id DESC LIMIT 1').get().parent_id,77);assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);db.close();
 });
+
+
+test('accounts without assessments have public comment threads with normal authorship, replies and deletion',async()=>{
+ const {db,request}=await setup();
+ try{
+  const path='/api/profiles/Other/comments';
+  assert.equal((await request(path,{body:{body:'Anonymous'}})).status,401);
+  const response=await request(path,{user:'1',body:{body:'Hello account',profile_bonk_id:'1',author_bonk_id:'2'}});
+  assert.equal(response.status,201);const parent=(await response.json()).id;
+  const stored=db.prepare('SELECT player_id,profile_bonk_id,author_bonk_id FROM comments WHERE id=?').get(parent);
+  assert.equal(stored.player_id,null);assert.equal(stored.profile_bonk_id,'2');assert.equal(stored.author_bonk_id,'1');
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM players').get().n,2);
+  let page=await (await request(path)).json();assert.equal(page.comments[0].body,'Hello account');assert.equal(page.can_post,false);
+  assert.equal('profile_bonk_id' in page.comments[0],false);assert.equal('author_bonk_id' in page.comments[0],false);
+  const childResponse=await request(path,{user:'2',body:{body:'Reply',parent_id:parent}});assert.equal(childResponse.status,201);const child=(await childResponse.json()).id;
+  assert.equal((await request('/api/comments/'+parent,{method:'DELETE',user:'2'})).status,403);
+  assert.equal((await request('/api/comments/'+parent,{method:'DELETE',user:'1'})).status,200);
+  page=await (await request(path)).json();assert.equal(page.comments[0].deleted,true);assert.equal(page.comments[0].reply_count,1);
+  assert.equal((await request(path,{user:'1',body:{body:'Not allowed',parent_id:parent}})).status,409);
+  assert.equal((await request(path,{user:'1',body:{body:'Allowed',parent_id:child}})).status,201);
+  assert.equal((await request('/api/profiles/Author/comments',{user:'1',body:{body:'Wrong account',parent_id:child}})).status,409);
+  assert.equal((await request('/api/players/p/assessments/1/comments',{user:'1',body:{body:'Wrong assessment',parent_id:child}})).status,409);
+  assert.equal((await request('/api/profiles/missing/comments')).status,404);
+  assert.equal((await request('/api/profiles/Other/comments?parent=nope')).status,400);
+  assert.equal((await request('/api/profiles/Other/comments?before=nope')).status,400);
+ }finally{db.close()}
+});
+
+test('an account thread survives its first assessment and legacy profile threads are promoted together',async()=>{
+ const {db,request}=await setup();
+ try{
+  const account='/api/profiles/Author/comments';
+  let response=await request(account,{user:'1',body:{body:'Before assessments'}});assert.equal(response.status,201);const accountRoot=(await response.json()).id;
+  db.prepare('UPDATE players SET name=? WHERE id=?').run('Author','p');
+  db.prepare('INSERT INTO comments(player_id,author_bonk_id,body,created_at) VALUES(?,?,?,?)').run('p','1','Legacy profile','2026-10-28');const legacyRoot=Number(db.prepare('SELECT last_insert_rowid() n').get().n);
+  db.prepare('INSERT INTO comments(player_id,parent_id,author_bonk_id,body,created_at) VALUES(?,?,?,?,?)').run('p',legacyRoot,'2','Legacy child','2026-10-28');const legacyChild=Number(db.prepare('SELECT last_insert_rowid() n').get().n);
+  db.prepare('INSERT INTO comments(player_id,assessment_id,author_bonk_id,body,created_at) VALUES(?,?,?,?,?)').run('p',1,'1','Assessment only','2026-10-28');
+  const playerPath='/api/players/p/comments';
+  let page=await (await request(playerPath)).json();assert.deepEqual(page.comments.map(comment=>comment.body),['Legacy profile','Before assessments']);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM comments WHERE profile_bonk_id=?').get('1').n,3);
+  response=await request(playerPath,{user:'2',body:{body:'New reply to old profile',parent_id:legacyRoot}});assert.equal(response.status,201);
+  response=await request(account,{user:'1',body:{body:'Reply to original account',parent_id:accountRoot}});assert.equal(response.status,201);
+  for(const path of [account,playerPath]){
+   page=await (await request(path+'?parent='+legacyRoot)).json();assert.deepEqual(page.comments.map(comment=>comment.body),['New reply to old profile','Legacy child']);
+  }
+  assert.equal((await (await request('/api/players/p/assessments/1/comments')).json()).comments[0].body,'Assessment only');
+  db.prepare('UPDATE players SET name=? WHERE id=?').run('Different name','p');
+  assert.equal((await (await request(playerPath)).json()).comments.length,0);
+  db.prepare('DELETE FROM players WHERE id=?').run('p');
+  page=await (await request(account+'?parent='+legacyRoot)).json();assert.equal(page.comments.length,2);assert.equal(page.comments[1].id,legacyChild);
+  assert.equal((await (await request(account)).json()).comments.length,2);
+ }finally{db.close()}
+});
+
+test('account and player comment aliases share the same rate limit',async()=>{
+ const {db,request}=await setup();
+ try{
+  db.prepare('UPDATE players SET name=? WHERE id=?').run('Author','p');
+  for(let i=0;i<5;i++)assert.equal((await request(i%2?'/api/profiles/Author/comments':'/api/players/p/comments',{user:'2',body:{body:'Comment'}})).status,201);
+  assert.equal((await request('/api/profiles/Other/comments',{user:'2',body:{body:'Same global budget'}})).status,429);
+ }finally{db.close()}
+});
+
+test('profile comment migration preserves nested tombstones, assessment separation and sequence',async()=>{
+ const {db}=await setup();
+ try{
+  db.prepare('UPDATE players SET name=? WHERE id=?').run('Author','p');
+  db.exec("DROP TABLE comments;CREATE TABLE comments(id INTEGER PRIMARY KEY AUTOINCREMENT,player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,assessment_id INTEGER REFERENCES assessments(id) ON DELETE CASCADE,parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,author_bonk_id TEXT REFERENCES bonk_users(bonk_id),body TEXT,created_at TEXT NOT NULL,deleted_at TEXT,CHECK((deleted_at IS NULL AND author_bonk_id IS NOT NULL AND body IS NOT NULL AND length(body) BETWEEN 1 AND 2000) OR (deleted_at IS NOT NULL AND author_bonk_id IS NULL AND body IS NULL)));INSERT INTO comments VALUES(7,'p',NULL,NULL,NULL,NULL,'2026-10-28','2026-10-28');INSERT INTO comments VALUES(8,'p',NULL,7,'1','Reply','2026-10-28',NULL);INSERT INTO comments VALUES(9,'p',1,NULL,'1','Assessment','2026-10-28',NULL);INSERT INTO comments VALUES(100,'q',NULL,NULL,'1','Removed','2026-10-28',NULL);DELETE FROM comments WHERE id=100;");
+  db.exec(readFileSync(new URL('../migrations/0014_profile_comments.sql',import.meta.url),'utf8'));
+  assert.equal(db.prepare('SELECT profile_bonk_id FROM comments WHERE id=7').get().profile_bonk_id,'1');
+  assert.equal(db.prepare('SELECT parent_id FROM comments WHERE id=8').get().parent_id,7);
+  assert.equal(db.prepare('SELECT player_id FROM comments WHERE id=9').get().player_id,'p');
+  assert.equal(db.prepare('SELECT profile_bonk_id FROM comments WHERE id=9').get().profile_bonk_id,null);
+  db.exec("INSERT INTO comments(profile_bonk_id,author_bonk_id,body,created_at) VALUES('2','1','New account comment','2026-10-28')");
+  assert.equal(db.prepare('SELECT MAX(id) n FROM comments').get().n,101);
+  assert.equal(db.prepare('PRAGMA foreign_key_check').all().length,0);
+  assert.throws(()=>db.exec("INSERT INTO comments(player_id,profile_bonk_id,author_bonk_id,body,created_at) VALUES('p','1','1','Invalid','2026-10-28')"));
+  assert.throws(()=>db.exec("INSERT INTO comments(profile_bonk_id,assessment_id,author_bonk_id,body,created_at) VALUES('1',1,'1','Invalid','2026-10-28')"));
+ }finally{db.close()}
+});
+
+test('profile comment migration keeps an empty table high-water mark',async()=>{
+ const {db}=await setup();
+ try{
+  db.exec("INSERT INTO comments(id,player_id,author_bonk_id,body,created_at) VALUES(100,'p','1','Removed','2026-10-28');DELETE FROM comments;");
+  db.exec(readFileSync(new URL('../migrations/0014_profile_comments.sql',import.meta.url),'utf8'));
+  db.exec("INSERT INTO comments(profile_bonk_id,author_bonk_id,body,created_at) VALUES('2','1','New account comment','2026-10-28')");
+  assert.equal(db.prepare('SELECT MAX(id) n FROM comments').get().n,101);
+ }finally{db.close()}
+});

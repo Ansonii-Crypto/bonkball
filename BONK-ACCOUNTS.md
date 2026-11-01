@@ -35,6 +35,8 @@ The Worker sends credentials directly to the fixed HTTPS endpoint `https://bonk2
 
 This is direct server-side authentication through Bonk's undocumented login endpoint, as used by [Bonkverse's published login implementation](https://github.com/Bonkverse/bonkverse/blob/main/skins/login.py). It is not an official OAuth integration or a separately verified token-introspection API. The Worker discards the upstream token after checking the successful login response; subsequent site requests use Bonk Critic's own sessions.
 
+The upstream login uses fixed provider Origin (`https://bonk.io`) and Referer (`https://bonk.io/`) headers for compatibility with that flow. Incoming API requests still require Bonk Critic's configured `ALLOWED_ORIGIN`; provider headers never grant a browser permission to call our API. Browser cookies and site session headers are not forwarded to Bonk.
+
 Site session tokens are random, stored as SHA-256 hashes server-side, and sent in secure HttpOnly cookies. As with the previous site, a tab-scoped sessionStorage fallback supports browsers blocking cross-site cookies. Both normal and elevated sessions are verified server-side. Elevated sessions must match the exact normal session and its linked Bonk ID, have an unexpired lifetime, and belong to an existing administrator with a configured code. Every protected endpoint checks those conditions. Editing frontend scripts does not grant access.
 
 Logins are rate limited by IP and by username; code verification retains its per-admin attempt limit. Mutation requests require the configured origin and JSON, with bounded request sizes. Invitation setup retains transactional consumption. Session expiry is enforced on the server.
@@ -72,9 +74,9 @@ The decoder accepts JSON, base64 and URL-encoded version-2 binary skin codes. It
 
 ## Profile and assessment comments
 
-Player records have a public profile thread. Each assessment has a separate Comments expander in its assessment view. Profile assessment cards link to that view; profile pages only contain the general profile thread. Anyone can read comments; a verified Bonk session is required to post. Profiles without a player record do not yet have a comment target.
+Player records have a public profile thread. Each assessment has a separate Comments expander in its assessment view. Profile assessment cards link to that view; profile pages only contain the general profile thread. Anyone can read comments; a verified Bonk session is required to post. Verified Bonk accounts also have profile threads before they receive any assessment. Comments on these profiles are attached to the account, without creating a player record.
 
-Authors can delete their own comments. Administrators must unlock their admin session to remove other users' comments. Deletion redacts the stored body and author association, replacing the display with a deleted placeholder while retaining replies. New replies are allowed only on a live immediate parent; live children of deleted parents can still receive replies. These permissions and author identity are enforced by the Worker, regardless of browser-supplied fields. Posts are plain text, limited to 2,000 characters and five per account per minute. Comment pages contain at most 20 entries, newest first, with Load older comments. Deleting a profile's player record or an assessment also removes its associated comments. Editing an assessment retains its existing thread.
+Authors can delete their own comments. Administrators must unlock their admin session to remove other users' comments. Deletion redacts the stored body and author association, replacing the display with a deleted placeholder while retaining replies. New replies are allowed only on a live immediate parent; live children of deleted parents can still receive replies. These permissions and author identity are enforced by the Worker, regardless of browser-supplied fields. Posts are plain text, limited to 2,000 characters and five per account per minute. Comment pages contain at most 20 entries, newest first, with Load older comments. Deleting an assessment removes its assessment comments. Account-bound profile comments remain when an assessed player record is removed; unmatched legacy player threads are removed with that player record. Editing an assessment retains its existing thread.
 
 From worker/, apply the migration before deploying:
 
@@ -88,9 +90,25 @@ Publish comments.js, comments.css, and the updated index.html, account.js and ap
 
 ### Nested replies and public avatars
 
-Apply `worker/migrations/0013_comment_replies.sql` once before deploying the updated Worker. The migration preserves existing comments and adds parent links and redacted deletion. Each thread paginates its root comments separately from each comment's replies. The server rejects cross-thread parent IDs and rechecks the parent during insertion to prevent replies racing deletion. Profile and assessment deletion still remove the whole associated thread.
+Apply `worker/migrations/0013_comment_replies.sql` once before deploying the updated Worker. The migration preserves existing comments and adds parent links and redacted deletion. Each thread paginates its root comments separately from each comment's replies. The server rejects cross-thread parent IDs and rechecks the parent during insertion to prevent replies racing deletion. Assessment deletion removes its thread. Legacy player-only threads are removed with their player record; account-bound profile threads remain.
 
 Public profiles and live comment authors use saved active skins via the local renderer. Profile lookup matches the player name to a known Bonk username, without returning a Bonk ID. Users without a saved skin retain the initial fallback. Deleted comments return no author name, skin, original text, or timestamp. The Delete hover has a translucent red background.
+
+
+### Profiles without assessments
+
+Apply `worker/migrations/0014_profile_comments.sql` once before deploying the updated Worker. It preserves existing comments, nested replies, deleted placeholders and comment IDs, and adds account-bound profile targets. It also attaches existing matching profile threads to their accounts. Later matches are attached when the profile thread is accessed, keeping a conversation together if the player record is subsequently renamed or removed.
+
+`GET` and `POST /api/profiles/:username/comments` resolve a known Bonk username on the server. The public response does not expose the target account ID. Existing player profile URLs show the same conversation when a matching account exists, including after a first assessment is added. Replies, moderation, deletion placeholders, pagination and the shared five-posts-per-minute budget work the same way as existing threads. Assessment threads remain separate.
+
+From `player-database-site`, deploy this update with:
+
+```powershell
+npx wrangler d1 execute player-database --remote --config worker/wrangler.toml --file worker/migrations/0014_profile_comments.sql
+npx wrangler deploy --config worker/wrangler.toml
+```
+
+Publish the updated `account.js` and `comments.js` after the backend is deployed.
 
 
 ### Mentions and comment actions

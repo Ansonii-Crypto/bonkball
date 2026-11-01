@@ -18,6 +18,12 @@ async function withProvider(callback){
  const original=globalThis.fetch;let next={r:'success',id:100,username:'Verified',token:'bonk-secret'};
  globalThis.fetch=async(url,options)=>{
   assert.equal(url,'https://bonk2.io/scripts/login_legacy.php');assert.equal(options.redirect,'manual');
+  assert.equal(options.headers['Content-Type'],'application/x-www-form-urlencoded; charset=UTF-8');
+  assert.equal(options.headers.Origin,'https://bonk.io');
+  assert.equal(options.headers.Referer,'https://bonk.io/');
+  assert.equal(options.headers.Authorization,undefined);
+  assert.equal(options.headers.Cookie,undefined);
+  assert.equal(options.headers['X-Account-Session'],undefined);
   const body=new URLSearchParams(options.body);assert.equal(body.get('remember'),'false');
   return Response.json(next);
  };
@@ -41,7 +47,7 @@ async function unlock(env,user,id='primary-zimble'){
 
 test('server trusts only Bonk HTTPS response; rejects wrong passwords, missing IDs and forged browser roles',async()=>withProvider(async set=>{
  const env=environment();
- set({r:'error'});assert.equal((await request(env,'/api/bonk/login',{username:'demo',password:'wrong'})).status,401);
+ set({r:'fail',e:'password'});assert.equal((await request(env,'/api/bonk/login',{username:'demo',password:'wrong'})).status,401);
  assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0);
  set({r:'success',token:'secret',username:'Verified'});assert.equal((await request(env,'/api/bonk/login',{username:'demo',password:'test-only',id:100})).status,502);
  set({r:'success',id:200,username:'Verified',token:'bonk-secret'});
@@ -63,8 +69,8 @@ test('provider failures are not misreported as proof of an incorrect password',a
   }
   set({r:'error',message:'private provider details'});
   const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});
-  assert.equal(response.status,401);const body=await response.json();
-  assert.match(body.error,/declined this sign-in/);assert.match(body.error,/rejecting sign-ins from this site/);
+  assert.equal(response.status,502);const body=await response.json();
+  assert.equal(body.error,'Bonk sign-in is temporarily unavailable. Please try again shortly.');
   assert.equal(JSON.stringify(body).includes('private provider details'),false);
   assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0);
  }finally{env.db.close()}
@@ -131,10 +137,22 @@ test('origin checks and account login throttling fail before provider authentica
 }));
 
 
+test('provider header compatibility does not allow Bonk or other sites to call our login API',async()=>{
+ const env=environment(),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;throw Error('Untrusted request reached provider')};
+ try{
+  for(const Origin of ['https://bonk.io','https://evil.test']){
+   const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'},{headers:{Origin}});
+   assert.equal(response.status,403);assert.equal((await response.json()).error,'Untrusted request origin.');
+  }
+  assert.equal(calls,0);
+ }finally{globalThis.fetch=original;env.db.close()}
+});
+
 test('Bonk redirects fail closed without following or forwarding credentials',async()=>{
  const env=environment(),original=globalThis.fetch;let calls=0;
  globalThis.fetch=async(url,options)=>{calls++;assert.equal(url,'https://bonk2.io/scripts/login_legacy.php');assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://example.com/other'}})};
- try{const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});assert.equal(response.status,502);assert.match((await response.json()).error,/redirected/);assert.equal(calls,1);assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0)}finally{globalThis.fetch=original;env.db.close()}
+ try{const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});assert.equal(response.status,502);assert.equal((await response.json()).error,'Bonk sign-in is temporarily unavailable. Please try again shortly.');assert.equal(calls,1);assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0)}finally{globalThis.fetch=original;env.db.close()}
 });
 
 
@@ -161,3 +179,66 @@ test('public author profiles show only public identity even without assessments'
   assert.equal((await request(env,'/api/public-profile?username=missing')).status,404);
  }finally{env.db.close()}
 }));
+
+test('login preserves password whitespace, Unicode and form-sensitive characters',async()=>{
+ const env=environment(),original=globalThis.fetch;
+ const password='  p+&=%?#é??  ';
+ globalThis.fetch=async(_url,options)=>{
+  const body=new URLSearchParams(String(options.body));
+  assert.equal(body.get('username'),'Alt + Name');
+  assert.equal(body.get('password'),password);
+  return Response.json({r:'success',id:200,username:'Alt + Name',token:'test-provider-token'});
+ };
+ try{
+  const response=await request(env,'/api/bonk/login',{username:' Alt + Name ',password});
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).user.username,'Alt + Name');
+ }finally{globalThis.fetch=original;env.db.close()}
+});
+
+test('login errors are concise and never expose provider diagnostics or account existence',async()=>withProvider(async set=>{
+ const env=environment();
+ try{
+  for(const reason of ['username','password']){
+   set({r:'fail',e:reason,message:'private details',token:'private-token',username:'private-user'});
+   const response=await request(env,'/api/bonk/login',{username:'demo',password:'private-password'});
+   assert.equal(response.status,401);
+   assert.deepEqual(await response.json(),{error:'Unable to sign in. Check your Bonk username and password.'});
+  }
+  for(const data of [{r:'error'},{r:'fail',e:'private details'},{r:'fail',e:{password:'private-password'}},{r:'unexpected-provider-code'}]){
+   set(data);const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});
+   assert.equal(response.status,502);
+   assert.deepEqual(await response.json(),{error:'Bonk sign-in is temporarily unavailable. Please try again shortly.'});
+  }
+  assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0);
+ }finally{env.db.close()}
+}));
+
+test('connection, empty and malformed responses use a friendly outage message; rate limits ask users to wait',async()=>{
+ const env=environment(),original=globalThis.fetch;
+ try{
+  const failures=[()=>{throw Error('private network details')},()=>new Response(null,{status:204}),()=>new Response('private upstream text',{status:503}),()=>new Response('not JSON',{status:200})];
+  for(const failure of failures){
+   globalThis.fetch=async()=>failure();
+   const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});
+   assert.equal(response.status,502);
+   assert.deepEqual(await response.json(),{error:'Bonk sign-in is temporarily unavailable. Please try again shortly.'});
+  }
+  globalThis.fetch=async()=>new Response(null,{status:429});
+  const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});
+  assert.equal(response.status,429);
+  assert.deepEqual(await response.json(),{error:'Too many sign-in attempts. Please wait a moment and try again.'});
+ }finally{globalThis.fetch=original;env.db.close()}
+});
+
+test('invalid credential encoding prompts re-entry without sending modified credentials',async()=>{
+ const env=environment(),original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async()=>{calls++;throw Error('Modified credentials must not reach provider')};
+ try{
+  const response=await request(env,'/api/bonk/login',{username:'demo',password:'bad\uD800'});
+  assert.equal(response.status,400);
+  assert.deepEqual(await response.json(),{error:'Please re-enter your Bonk username and password.'});
+  assert.equal(calls,0);
+  assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0);
+ }finally{globalThis.fetch=original;env.db.close()}
+});

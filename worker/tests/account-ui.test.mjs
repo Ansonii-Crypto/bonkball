@@ -57,6 +57,25 @@ test('profiles without assessments omit the assessments heading and controls',()
  assert.doesNotMatch(ui.html,/ownAssessmentsTitle|profileAssessmentFilter/);
 });
 
+test('profiles without assessments still render and mount account profile comments',()=>{
+ const ui=fixture({user:null});let mounted=0;
+ ui.context.accountProfileCommentThreadHTML=username=>`<section data-comment-profile="${escape(username)}">Profile comments</section>`;
+ ui.context.mountCommentThreads=()=>{mounted++};
+ ui.context.renderOwnProfile({username:'<New Author>'},null,[]);
+ assert.match(ui.html,/No assessments have been recorded/);
+ assert.match(ui.html,/data-comment-profile="&lt;New Author&gt;"/);
+ assert.equal(mounted,1);
+ assert.doesNotMatch(ui.html,/ownAssessmentsTitle|profileAssessmentFilter/);
+});
+
+test('assessed profiles keep their existing player comment target',()=>{
+ const ui=fixture({user:null});
+ ui.context.commentThreadHTML=id=>`<section data-comment-player="${id}">Existing comments</section>`;
+ ui.context.accountProfileCommentThreadHTML=()=>{throw Error('Existing player thread should be preserved')};
+ ui.context.renderOwnProfile({username:'Author'},{id:'player-7'},[]);
+ assert.match(ui.html,/data-comment-player="player-7"/);
+});
+
 test('assessment order respects timestamps, explicit sort choice, and admin filter',()=>{
  const ui=fixture({user:null}),history=[{id:1,assessed_at:'2026-10-22T10:00:00Z',assessed_by:'Zed',total:1300},{id:2,assessed_at:'2026-10-22T11:00:00Z',assessed_by:'Amy',total:1500},{id:3,assessed_at:'2026-10-23',assessed_by:'Zed',total:1300}];
  const ids=(order,author='')=>Array.from(ui.context.profileAssessmentOrder(history,order,author),h=>h.id);
@@ -111,4 +130,15 @@ test('public profile opens the requested player rather than the signed-in accoun
  ui.context.api=async path=>{assert.equal(path,'/api/players/player%20id');return {player:{id:'player id',name:'Other player'},profile:{avatar_code:'public-skin'},history:[{id:8}]}};
  ui.context.renderOwnProfile=(user,record,history)=>{profile={user,record,history}};
  await ui.context.publicPlayerProfile('player id');assert.equal(profile.user.username,'Other player');assert.equal(profile.user.id,undefined);assert.equal(profile.user.avatar_code,'public-skin');assert.equal(profile.history[0].id,8);
+});
+
+test('opening an unassessed comment author shows their public profile and comment thread',async()=>{
+ const ui=fixture({user:{username:'Signed in',id:'1'}});let mounted=0;
+ ui.context.api=async path=>{assert.equal(path,'/api/public-profile?username=New%20Author');return {profile:{username:'New Author',avatar_code:null},player_id:null}};
+ ui.context.accountProfileCommentThreadHTML=username=>`<section data-comment-profile="${escape(username)}">Profile comments</section>`;
+ ui.context.mountCommentThreads=()=>{mounted++};
+ await ui.context.publicAuthorProfile('New Author');
+ assert.match(ui.html,/New Author/);assert.match(ui.html,/data-comment-profile="New Author"/);
+ assert.match(ui.html,/No assessments have been recorded/);
+ assert.doesNotMatch(ui.html,/Bonk account ID|ownAssessmentsTitle/);assert.equal(mounted,1);
 });

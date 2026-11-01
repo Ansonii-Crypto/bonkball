@@ -9,6 +9,16 @@ test('profile and assessment placeholders carry distinct safe targets',()=>{
  const ctx=context();assert.match(ctx.commentThreadHTML('p"<>'),/data-comment-player="p&quot;&lt;&gt;"/);
  assert.doesNotMatch(ctx.commentThreadHTML('p'),/data-comment-assessment/);
  assert.match(ctx.commentThreadHTML('p',7),/data-comment-assessment="7"/);
+ assert.match(ctx.accountProfileCommentThreadHTML('A"<> /?'),/data-comment-profile="A&quot;&lt;&gt; \/\?"/);
+ assert.doesNotMatch(ctx.accountProfileCommentThreadHTML('Author'),/data-comment-player|data-comment-assessment/);
+});
+
+test('account profile threads mount once without an assessment or player record',()=>{
+ let calls=0;
+ const thread={isConnected:true,closest:()=>null};
+ const ctx=context();ctx.loadCommentThread=()=>{calls++};
+ const root={querySelectorAll:selector=>{assert.match(selector,/\[data-comment-profile\]/);return [thread]}};
+ ctx.mountCommentThreads(root);ctx.mountCommentThreads(root);assert.equal(calls,1);
 });
 test('assessment comments load only on expansion and mount only once',async()=>{
  let calls=0,handler;const disclosure={open:false,addEventListener(_event,callback){handler=callback}};
@@ -36,6 +46,22 @@ test('comment text is escaped and failed posts preserve the typed text',async()=
  const ui=threadFixture({id:1,author_name:'<Author>',body:'<script>hello</script>',created_at:'2026-10-28',can_delete:false});
  await ui.ctx.loadCommentThread(ui.thread);assert.match(ui.content.innerHTML,/&lt;script&gt;hello&lt;\/script&gt;/);assert.match(ui.content.innerHTML,/&lt;Author&gt;/);
  await ui.form.onsubmit({preventDefault(){}});assert.equal(ui.error.textContent,'Please wait');assert.equal(ui.input.value,'My unsent comment');assert.equal(ui.button.disabled,false);
+});
+
+test('profiles without assessments load and post comments through the account profile endpoint',async()=>{
+ const ui=threadFixture({id:1,author_name:'Author',body:'Hello',created_at:'2026-10-28'});
+ ui.thread.dataset={commentProfile:'New Author/?'};
+ const calls=[];
+ ui.ctx.api=async(path,options)=>{
+  calls.push({path,options});assert.equal(path,'/api/profiles/New%20Author%2F%3F/comments');
+  if(options){assert.deepEqual(JSON.parse(options.body),{body:'My unsent comment'});throw Error('Please wait')}
+  return {can_post:true,viewer:{username:'Author'},comments:[],next_cursor:null};
+ };
+ await ui.ctx.loadCommentThread(ui.thread);
+ assert.match(ui.thread.innerHTML,/Profile comments/);assert.match(ui.thread.innerHTML,/Post comment/);
+ await ui.form.onsubmit({preventDefault(){}});
+ assert.equal(calls.length,2);assert.equal(calls[1].options.method,'POST');
+ assert.equal(ui.error.textContent,'Please wait');assert.equal(ui.input.value,'My unsent comment');
 });
 
 test('deleted comments expose neither original content nor author and have no reply controls',()=>{

@@ -3,9 +3,13 @@ function commentThreadHTML(playerId,assessmentId=null){
  if(!playerId)return '';
  return `<section class="comment-thread" data-comment-player="${esc(playerId)}"${assessmentId?` data-comment-assessment="${Number(assessmentId)}"`:''} aria-label="${assessmentId?'Assessment':'Profile'} comments"><p class="meta">Loading comments...</p></section>`;
 }
+function accountProfileCommentThreadHTML(username){
+ if(!username)return '';
+ return `<section class="comment-thread" data-comment-profile="${esc(username)}" aria-label="Profile comments"><p class="meta">Loading comments...</p></section>`;
+}
 const mountedCommentThreads=new WeakSet();
 function mountCommentThreads(root=V){
- root.querySelectorAll('[data-comment-player]').forEach(thread=>{
+ root.querySelectorAll('[data-comment-player], [data-comment-profile]').forEach(thread=>{
   if(mountedCommentThreads.has(thread))return;mountedCommentThreads.add(thread);
   const disclosure=thread.closest('details.assessment-comments');
   let loaded=false;
@@ -66,8 +70,8 @@ function refreshCommentParentReferences(parent){
  for(const button of parent.references){if(!button.isConnected){parent.references.delete(button);continue}button.textContent=commentParentReferenceText(parent.comment)}
 }
 async function loadCommentThread(thread){
- const playerId=thread.dataset.commentPlayer,assessmentId=thread.dataset.commentAssessment;
- const path='/api/players/'+encodeURIComponent(playerId)+(assessmentId?'/assessments/'+assessmentId:'')+'/comments';
+ const playerId=thread.dataset.commentPlayer,assessmentId=thread.dataset.commentAssessment,profileUsername=thread.dataset.commentProfile;
+ const path=profileUsername?'/api/profiles/'+encodeURIComponent(profileUsername)+'/comments':'/api/players/'+encodeURIComponent(playerId)+(assessmentId?'/assessments/'+assessmentId:'')+'/comments';
  try{
   const data=await api(path);if(!thread.isConnected)return;
   thread.innerHTML=`<h2>${assessmentId?'Comments':'Profile comments'}</h2>${data.can_post?`<form class="comment-form"><label>Comment as <strong>${esc(data.viewer.username)}</strong><textarea name="body" maxlength="2000" rows="3" placeholder="Write a comment..." required></textarea></label><div class="comment-form-actions"><span class="meta">2,000 characters maximum</span><button type="submit">Post comment</button></div></form>`:'<p class="meta"><a class="comment-sign-in" href="#/account">Sign in with Bonk</a> to leave a comment.</p>'}<p class="comment-error error" role="status" aria-live="polite"></p><div class="comment-list"></div>`;

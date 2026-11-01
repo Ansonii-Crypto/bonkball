@@ -12,23 +12,30 @@ async function identity(r,e){const token=userToken(r);if(!token)return null;retu
 async function linkedAdmin(e,user){if(!user)return null;return e.DB.prepare('SELECT a.id,a.name,a.is_primary,EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=a.id AND c.code_hash IS NOT NULL) AS code_ready,(SELECT expires_at FROM admin_invitations WHERE account_id=a.id AND expires_at>?) AS invitation_expires_at FROM admin_accounts a JOIN admin_bonk_links l ON l.account_id=a.id WHERE l.bonk_id=?').bind(Date.now(),user.bonk_id).first()}
 async function session(r,e){let t=getCookie(r),user=await identity(r,e);if(!t||!user)return null;return e.DB.prepare('SELECT s.token_hash,a.id,a.name,a.is_primary FROM admin_sessions s JOIN admin_accounts a ON a.id=s.account_id JOIN admin_session_identity i ON i.token_hash=s.token_hash JOIN admin_bonk_links l ON l.account_id=a.id WHERE s.token_hash=? AND s.expires_at>? AND i.user_session_hash=? AND l.bonk_id=? AND EXISTS(SELECT 1 FROM admin_credentials c WHERE c.account_id=a.id AND c.code_hash IS NOT NULL)').bind(await hash(t),Date.now(),user.token_hash,user.bonk_id).first()}
 function bonkId(value){return /^(0|[1-9][0-9]{0,15})$/.test(String(value??''))&&Number.isSafeInteger(Number(value))&&Number(value)>0?String(value):null}
-async function bonkAuthenticate(username,password,origin){
+async function bonkAuthenticate(username,password){
+ const formBody=new URLSearchParams({username,password,remember:'false'}).toString();
+ const decodedForm=new URLSearchParams(new TextDecoder().decode(new TextEncoder().encode(formBody)));
+ if(decodedForm.get('username')!==username||decodedForm.get('password')!==password)return {error:'Please re-enter your Bonk username and password.',status:400};
+ const unavailable={error:'Bonk sign-in is temporarily unavailable. Please try again shortly.',status:502};
  let response;
- try{response=await fetch('https://bonk2.io/scripts/login_legacy.php',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/json','Origin':origin},body:new URLSearchParams({username,password,remember:'false'})})}catch{return {error:'Unable to reach Bonk securely. Try again later.',status:502}}
- if(response.status>=300&&response.status<400)return {error:'Bonk redirected the login request. No credentials were forwarded to the redirect destination.',status:502};
- if(!response.ok)return {error:response.status===429?'Bonk is rate-limiting sign-ins. Please wait.':'Bonk rejected the connection. Try again later or sign in on bonk.io.',status:response.status===429?429:502};
+ // These headers describe the fixed provider login flow. The incoming site's
+ // Origin is validated separately and must not configure the provider request.
+ try{response=await fetch('https://bonk2.io/scripts/login_legacy.php',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(20000),headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8','Accept':'application/json','Origin':'https://bonk.io','Referer':'https://bonk.io/'},body:formBody})}catch{return unavailable}
+ if(response.status>=300&&response.status<400)return unavailable;
+ if(!response.ok)return response.status===429?{error:'Too many sign-in attempts. Please wait a moment and try again.',status:429}:unavailable;
  // Bound the response without logging or storing passwords or provider tokens.
- const reader=response.body.getReader();let chunks=[],size=0;
- try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>512000){await reader.cancel();return {error:'Unexpected Bonk response.',status:502}}chunks.push(value)}}catch{return {error:'Incomplete Bonk response.',status:502}}
+ const reader=response.body?.getReader();if(!reader)return unavailable;let chunks=[],size=0;
+ try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>512000){await reader.cancel();return unavailable}chunks.push(value)}}catch{return unavailable}
  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
- let data;try{data=JSON.parse(new TextDecoder().decode(bytes))}catch{return {error:'Unexpected Bonk response.',status:502}}
- if(!data||typeof data!=='object'||Array.isArray(data)||typeof data.r!=='string')return {error:'Unexpected Bonk response. Try again later.',status:502};
- // A provider rejection is not proof of a wrong password: Bonk may also
- // reject third-party sign-ins. Never expose its raw response or token.
- if(data.r!=='success')return {error:'Bonk declined this sign-in. Check your details on bonk.io; if they work there, Bonk may be temporarily rejecting sign-ins from this site.',status:401};
- if(typeof data.token!=='string'||!data.token.trim())return {error:'Bonk returned an incomplete sign-in response. Try again later.',status:502};
+ let data;try{data=JSON.parse(new TextDecoder().decode(bytes))}catch{return unavailable}
+ if(!data||typeof data!=='object'||Array.isArray(data)||typeof data.r!=='string')return unavailable;
+ // Give both credential failures the same message, without exposing provider data.
+ if(data.r!=='success'){
+  return data.r==='fail'&&['username','password'].includes(data.e)?{error:'Unable to sign in. Check your Bonk username and password.',status:401}:unavailable;
+ }
+ if(typeof data.token!=='string'||!data.token.trim())return unavailable;
  const id=bonkId(data.id);
- if(!id||typeof data.username!=='string'||!data.username.trim()||data.username.length>100)return {error:'Bonk did not return a verified account ID and username.',status:502};
+ if(!id||typeof data.username!=='string'||!data.username.trim()||data.username.length>100)return unavailable;
  const selected=Number(data.activeAvatarNumber??data.activeavatarnumber),slot=selected===0?1:selected;
  const code=Number.isInteger(slot)&&slot>=1&&slot<=5?data['avatar'+slot]:null;
  const avatar=typeof code==='string'&&code.length>0&&code.length<=20000?code:null;
@@ -65,7 +72,7 @@ if(p==='/api/bonk/login'&&m==='POST'){
  const bucket=Math.floor(Date.now()/600000),key=await hash(b.username.trim().toLowerCase());
  const limit=await e.DB.prepare('INSERT INTO bonk_login_attempts(identity_hash,window,attempts) VALUES(?,?,1) ON CONFLICT(identity_hash) DO UPDATE SET window=excluded.window,attempts=CASE WHEN bonk_login_attempts.window=excluded.window THEN bonk_login_attempts.attempts+1 ELSE 1 END RETURNING attempts').bind(key,bucket).first();
  if(limit.attempts>10)return J({error:'Too many sign-in attempts. Try again in ten minutes.'},429,o,e);
- const verified=await bonkAuthenticate(b.username.trim(),b.password,e.ALLOWED_ORIGIN);b.password='';
+ const verified=await bonkAuthenticate(b.username.trim(),b.password);b.password='';
  if(verified.error)return J({error:verified.error},verified.status,o,e);
  await clearUserSession(r,e);
  const t=uuid()+uuid(),digest=await hash(t);
@@ -192,10 +199,31 @@ if(p==='/api/player-drafts'||p.startsWith('/api/player-drafts/')){
  return J({error:'Method not allowed.'},405,o,e);
 }
 const commentThread=p.match(/^\/api\/players\/([^/]+)(?:\/assessments\/(\d+))?\/comments$/);
-if(commentThread){
- const playerId=decodeURIComponent(commentThread[1]),assessmentId=commentThread[2]?Number(commentThread[2]):null;
+const profileCommentThread=p.match(/^\/api\/profiles\/([^/]+)\/comments$/);
+if(commentThread||profileCommentThread){
+ let playerId=null,profileBonkId=null;
+ const assessmentId=commentThread?.[2]?Number(commentThread[2]):null;
  if(assessmentId!==null&&(!Number.isSafeInteger(assessmentId)||assessmentId<1))return J({error:'Invalid assessment.'},400,o,e);
- if(!await e.DB.prepare('SELECT id FROM players WHERE id=?').bind(playerId).first())return J({error:'Player not found.'},404,o,e);
+ if(profileCommentThread){
+  const username=decodeURIComponent(profileCommentThread[1]);if(!username||username.length>100)return J({error:'Invalid username.'},400,o,e);
+  const profile=await e.DB.prepare('SELECT bonk_id,username FROM bonk_users WHERE username=? COLLATE NOCASE').bind(username).first();
+  if(!profile)return J({error:'Profile not found.'},404,o,e);
+  profileBonkId=profile.bonk_id;
+  const player=await e.DB.prepare('SELECT id FROM players WHERE trim(name)=trim(?) COLLATE NOCASE LIMIT 1').bind(profile.username).first();
+  playerId=player?.id||null;
+ }else{
+  playerId=decodeURIComponent(commentThread[1]);
+  const player=await e.DB.prepare('SELECT id,name FROM players WHERE id=?').bind(playerId).first();
+  if(!player)return J({error:'Player not found.'},404,o,e);
+  if(assessmentId===null){const profile=await e.DB.prepare('SELECT bonk_id FROM bonk_users WHERE username=? COLLATE NOCASE').bind(player.name.trim()).first();profileBonkId=profile?.bonk_id||null}
+ }
+ // Account profiles and pre-existing named-player profiles share one public
+ // thread when both exist. Account comments need no phantom player record.
+ // Move an entire legacy profile thread together, including deleted parents,
+ // so a later player rename/deletion cannot split its account-bound replies.
+ if(assessmentId===null&&playerId&&profileBonkId)await e.DB.prepare('UPDATE comments SET profile_bonk_id=?,player_id=NULL WHERE player_id=? AND assessment_id IS NULL').bind(profileBonkId,playerId).run();
+ const scope=assessmentId===null?'c.assessment_id IS NULL AND (c.player_id=? OR c.profile_bonk_id=?)':'c.player_id=? AND c.assessment_id=?';
+ const scopeArgs=assessmentId===null?[playerId,profileBonkId]:[playerId,assessmentId];
  if(assessmentId!==null&&!await e.DB.prepare('SELECT id FROM assessments WHERE id=? AND player_id=?').bind(assessmentId,playerId).first())return J({error:'Assessment not found.'},404,o,e);
  const user=await identity(r,e);
  if(m==='GET'){
@@ -203,8 +231,8 @@ if(commentThread){
   if(!Number.isSafeInteger(before)||before<1)return J({error:'Invalid comment cursor.'},400,o,e);
   const parentParam=u.searchParams.get('parent'),parent=parentParam===null?null:Number(parentParam);
   if(parent!==null&&(!Number.isSafeInteger(parent)||parent<1))return J({error:'Invalid parent comment.'},400,o,e);
-  if(parent!==null&&!await e.DB.prepare('SELECT id FROM comments WHERE id=? AND player_id=? AND assessment_id IS ?').bind(parent,playerId,assessmentId).first())return J({error:'Parent comment not found in this thread.'},404,o,e);
-  const admin=await session(r,e),rows=await e.DB.prepare('SELECT c.id,c.parent_id,c.author_bonk_id,c.body,c.created_at,c.deleted_at,u.username AS author_name,v.skin_code AS avatar_code,(SELECT COUNT(*) FROM comments children WHERE children.parent_id=c.id) AS reply_count FROM comments c LEFT JOIN bonk_users u ON u.bonk_id=c.author_bonk_id LEFT JOIN bonk_account_avatars v ON v.bonk_id=c.author_bonk_id WHERE c.player_id=? AND c.assessment_id IS ? AND c.parent_id IS ? AND c.id<? ORDER BY c.id DESC LIMIT 21').bind(playerId,assessmentId,parent,before).all();
+  if(parent!==null&&!await e.DB.prepare(`SELECT c.id FROM comments c WHERE c.id=? AND ${scope}`).bind(parent,...scopeArgs).first())return J({error:'Parent comment not found in this thread.'},404,o,e);
+  const admin=await session(r,e),rows=await e.DB.prepare(`SELECT c.id,c.parent_id,c.author_bonk_id,c.body,c.created_at,c.deleted_at,u.username AS author_name,v.skin_code AS avatar_code,(SELECT COUNT(*) FROM comments children WHERE children.parent_id=c.id) AS reply_count FROM comments c LEFT JOIN bonk_users u ON u.bonk_id=c.author_bonk_id LEFT JOIN bonk_account_avatars v ON v.bonk_id=c.author_bonk_id WHERE (${scope}) AND c.parent_id IS ? AND c.id<? ORDER BY c.id DESC LIMIT 21`).bind(...scopeArgs,parent,before).all();
   const page=rows.results.slice(0,20);
   return J({comments:page.map(row=>({id:row.id,parent_id:row.parent_id,deleted:!!row.deleted_at,author_name:row.deleted_at?null:row.author_name,avatar_code:row.deleted_at?null:row.avatar_code,body:row.deleted_at?null:row.body,created_at:row.deleted_at?null:row.created_at,reply_count:row.reply_count,can_reply:!!user&&!row.deleted_at,can_delete:!!user&&!row.deleted_at&&(row.author_bonk_id===user.bonk_id||!!admin)})),can_post:!!user,viewer:user?{username:user.username,avatar_code:user.avatar_code}:null,next_cursor:rows.results.length>20?page.at(-1).id:null},200,o,e);
  }
@@ -214,10 +242,11 @@ if(commentThread){
   if(!body||body.length>2000)return J({error:'Comments must contain 1 to 2,000 characters.'},400,o,e);
   const parent=b?.parent_id===undefined||b.parent_id===null?null:b.parent_id;
   if(parent!==null&&(!Number.isSafeInteger(parent)||parent<1))return J({error:'Invalid parent comment.'},400,o,e);
-  if(parent!==null&&!await e.DB.prepare('SELECT id FROM comments WHERE id=? AND player_id=? AND assessment_id IS ? AND deleted_at IS NULL').bind(parent,playerId,assessmentId).first())return J({error:'You can only reply to an existing, non-deleted comment in this thread.'},409,o,e);
+  if(parent!==null&&!await e.DB.prepare(`SELECT c.id FROM comments c WHERE c.id=? AND (${scope}) AND c.deleted_at IS NULL`).bind(parent,...scopeArgs).first())return J({error:'You can only reply to an existing, non-deleted comment in this thread.'},409,o,e);
   const bucket=Math.floor(Date.now()/60000),attempt=await e.DB.prepare('INSERT INTO comment_post_attempts(bonk_id,window,attempts) VALUES(?,?,1) ON CONFLICT(bonk_id) DO UPDATE SET window=excluded.window,attempts=CASE WHEN comment_post_attempts.window=excluded.window THEN comment_post_attempts.attempts+1 ELSE 1 END RETURNING attempts').bind(user.bonk_id,bucket).first();
   if(attempt.attempts>5)return J({error:'You can post five comments per minute. Please wait before posting again.'},429,o,e);
-  const comment=await e.DB.prepare('INSERT INTO comments(player_id,assessment_id,parent_id,author_bonk_id,body,created_at) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM players WHERE id=?) AND (? IS NULL OR EXISTS(SELECT 1 FROM assessments WHERE id=? AND player_id=?)) AND (? IS NULL OR EXISTS(SELECT 1 FROM comments WHERE id=? AND player_id=? AND assessment_id IS ? AND deleted_at IS NULL)) RETURNING id').bind(playerId,assessmentId,parent,user.bonk_id,body,now(),playerId,assessmentId,assessmentId,playerId,parent,parent,playerId,assessmentId).first();
+  const targetProfile=assessmentId===null?profileBonkId:null,targetPlayer=targetProfile?null:playerId;
+  const comment=await e.DB.prepare(`INSERT INTO comments(player_id,profile_bonk_id,assessment_id,parent_id,author_bonk_id,body,created_at) SELECT ?,?,?,?,?,?,? WHERE ((? IS NOT NULL AND EXISTS(SELECT 1 FROM bonk_users WHERE bonk_id=?)) OR (? IS NOT NULL AND EXISTS(SELECT 1 FROM players WHERE id=?))) AND (? IS NULL OR EXISTS(SELECT 1 FROM assessments WHERE id=? AND player_id=?)) AND (? IS NULL OR EXISTS(SELECT 1 FROM comments c WHERE c.id=? AND (${scope}) AND c.deleted_at IS NULL)) RETURNING id`).bind(targetPlayer,targetProfile,assessmentId,parent,user.bonk_id,body,now(),targetProfile,targetProfile,targetPlayer,targetPlayer,assessmentId,assessmentId,playerId,parent,parent,...scopeArgs).first();
   if(!comment)return J({error:'The target was removed or the parent comment was deleted. Your reply was not posted.'},409,o,e);
   return J({ok:true,id:comment.id},201,o,e);
  }
