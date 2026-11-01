@@ -101,3 +101,10 @@ test('comment timestamps expose a full-date tooltip with unique accessible IDs',
  assert.match(first,/aria-describedby="comment-date-1"/);assert.match(first,/id="comment-date-1"/);assert.match(second,/id="comment-date-2"/);
  assert.equal(ctx.commentTimestampHTML('invalid'),'');
 });
+
+test('comment author links encode the username and escape its visible text',()=>{
+ const ctx=context();
+ const html=ctx.commentContentHTML({author_name:'A<& /?',body:'Hello',created_at:'2026-10-28'});
+ assert.match(html,/class="comment-author" href="#\/profile-name\/A%3C%26%20%2F%3F"/);
+ assert.match(html,/>A&lt;&amp; \/\?<\/a>/);
+});

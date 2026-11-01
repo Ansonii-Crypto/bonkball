@@ -111,3 +111,14 @@ window.addEventListener('focus',refreshAccountMenus);
 refreshAccountMenus();
 
 document.addEventListener('click',event=>{document.querySelectorAll('.profile-assessment-filter[open]').forEach(filter=>{if(!filter.contains(event.target))filter.open=false})});
+
+async function publicAuthorProfile(username){
+ render('<div class="login"><h1>Profile</h1><p>Loading player profile...</p></div>');
+ const panel=V.firstElementChild;
+ try{
+  const {profile,player_id}=await api('/api/public-profile?username='+encodeURIComponent(username));
+  if(!panel.isConnected)return;
+  if(player_id){await publicPlayerProfile(player_id);return}
+  renderOwnProfile(profile,null,[]);
+ }catch(error){if(panel.isConnected)render(`<div class="login"><h1>Profile unavailable</h1><p class="error">${esc(error.message)}</p><a href="#/players">Back to players</a></div>`)}
+}

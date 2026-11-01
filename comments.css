@@ -53,3 +53,5 @@
 @media(prefers-reduced-motion:reduce){.comment-date-tooltip{transition:none}}
 
 .comment-form-actions>.meta{margin-right:auto}
+
+.comment-heading .comment-author{color:inherit;font-weight:700;text-decoration:none;overflow-wrap:anywhere}.comment-heading .comment-author:hover,.comment-heading .comment-author:focus-visible{text-decoration:underline}

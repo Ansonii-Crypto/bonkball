@@ -41,7 +41,7 @@ function commentTimestampHTML(value){
 function commentContentHTML(comment,viewer=null){
  if(comment.deleted)return '<p class="comment-deleted">This comment has been deleted.</p><div class="comment-actions"><span class="comment-replies-slot"></span></div>';
  const avatar=typeof accountAvatar==='function'?accountAvatar({username:comment.author_name,avatar_code:comment.avatar_code}):`<span class="account-avatar" aria-hidden="true">${esc(Array.from(comment.author_name||'?')[0])}</span>`;
- return `<div class="comment-heading">${avatar}<strong>${esc(comment.author_name)}</strong>${commentTimestampHTML(comment.created_at)}${comment.can_delete?'<button type="button" class="comment-delete" aria-label="Delete comment">Delete</button>':''}</div><p class="comment-body">${commentMentionHTML(comment.body,viewer)}</p><div class="comment-actions">${comment.can_reply?'<button type="button" class="comment-reply">Reply</button>':''}<span class="comment-replies-slot"></span></div><div class="comment-reply-form-slot"></div>`;
+ return `<div class="comment-heading">${avatar}<a class="comment-author" href="#/profile-name/${encodeURIComponent(comment.author_name)}">${esc(comment.author_name)}</a>${commentTimestampHTML(comment.created_at)}${comment.can_delete?'<button type="button" class="comment-delete" aria-label="Delete comment">Delete</button>':''}</div><p class="comment-body">${commentMentionHTML(comment.body,viewer)}</p><div class="comment-actions">${comment.can_reply?'<button type="button" class="comment-reply">Reply</button>':''}<span class="comment-replies-slot"></span></div><div class="comment-reply-form-slot"></div>`;
 }
 function commentParentReferenceText(parent){
  if(!parent||parent.deleted)return 'Replying to a deleted comment.';

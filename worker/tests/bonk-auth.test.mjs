@@ -54,6 +54,22 @@ test('server trusts only Bonk HTTPS response; rejects wrong passwords, missing I
  env.db.close();
 }));
 
+test('provider failures are not misreported as proof of an incorrect password',async()=>withProvider(async set=>{
+ const env=environment();
+ try{
+  for(const data of [null,[],{}, {message:'provider unavailable'}, {r:'success',id:100,username:'Verified'}, {r:'success',token:'   ',id:100,username:'Verified'}]){
+   set(data);const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});
+   assert.equal(response.status,502);assert.doesNotMatch((await response.json()).error,/username and password/);
+  }
+  set({r:'error',message:'private provider details'});
+  const response=await request(env,'/api/bonk/login',{username:'demo',password:'test-only'});
+  assert.equal(response.status,401);const body=await response.json();
+  assert.match(body.error,/declined this sign-in/);assert.match(body.error,/rejecting sign-ins from this site/);
+  assert.equal(JSON.stringify(body).includes('private provider details'),false);
+  assert.equal(env.db.prepare('SELECT COUNT(*) n FROM user_sessions').get().n,0);
+ }finally{env.db.close()}
+}));
+
 test('admin elevation requires the correct Bonk identity and code, and expires independently',async()=>withProvider(async()=>{
  const env=environment();await seedCode(env,'primary-zimble');const user=await signIn(env);
  let state=await (await request(env,'/api/session',null,{user})).json();
@@ -133,4 +149,15 @@ test('active avatar comes only from the verified login response and persists acr
  set({r:'success',id:100,username:'Verified',token:'bonk-secret',activeAvatarNumber:99,avatar1:'not-selected'});
  const fallback=await signIn(env);state=await (await request(env,'/api/session',null,{user:fallback})).json();assert.equal(state.user.avatar_code,null);
  env.db.close();
+}));
+
+test('public author profiles show only public identity even without assessments',async()=>withProvider(async()=>{
+ const env=environment();
+ try{
+  await signIn(env);
+  const response=await request(env,'/api/public-profile?username=verified');
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{profile:{username:'Verified',avatar_code:null},player_id:null});
+  assert.equal((await request(env,'/api/public-profile?username=missing')).status,404);
+ }finally{env.db.close()}
 }));

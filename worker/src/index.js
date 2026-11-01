@@ -22,7 +22,11 @@ async function bonkAuthenticate(username,password,origin){
  try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>512000){await reader.cancel();return {error:'Unexpected Bonk response.',status:502}}chunks.push(value)}}catch{return {error:'Incomplete Bonk response.',status:502}}
  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length}
  let data;try{data=JSON.parse(new TextDecoder().decode(bytes))}catch{return {error:'Unexpected Bonk response.',status:502}}
- if(data?.r!=='success'||typeof data.token!=='string'||!data.token)return {error:'Bonk did not accept that username and password.',status:401};
+ if(!data||typeof data!=='object'||Array.isArray(data)||typeof data.r!=='string')return {error:'Unexpected Bonk response. Try again later.',status:502};
+ // A provider rejection is not proof of a wrong password: Bonk may also
+ // reject third-party sign-ins. Never expose its raw response or token.
+ if(data.r!=='success')return {error:'Bonk declined this sign-in. Check your details on bonk.io; if they work there, Bonk may be temporarily rejecting sign-ins from this site.',status:401};
+ if(typeof data.token!=='string'||!data.token.trim())return {error:'Bonk returned an incomplete sign-in response. Try again later.',status:502};
  const id=bonkId(data.id);
  if(!id||typeof data.username!=='string'||!data.username.trim()||data.username.length>100)return {error:'Bonk did not return a verified account ID and username.',status:502};
  const selected=Number(data.activeAvatarNumber??data.activeavatarnumber),slot=selected===0?1:selected;
@@ -227,6 +231,13 @@ if(commentDelete&&m==='DELETE'){
  if(comment.deleted_at)return J({ok:true},200,o,e);
  const moderator=await session(r,e);if(comment.author_bonk_id!==user.bonk_id&&!moderator)return J({error:'You can only delete your own comments.'},403,o,e);
  await e.DB.prepare('UPDATE comments SET body=NULL,author_bonk_id=NULL,deleted_at=? WHERE id=? AND (author_bonk_id=? OR ?=1)').bind(now(),id,user.bonk_id,moderator?1:0).run();return J({ok:true},200,o,e);
+}
+if(p==='/api/public-profile'&&m==='GET'){
+ const name=u.searchParams.get('username');if(!name||name.length>100)return J({error:'Invalid username.'},400,o,e);
+ const profile=await e.DB.prepare('SELECT u.username,v.skin_code AS avatar_code FROM bonk_users u LEFT JOIN bonk_account_avatars v ON v.bonk_id=u.bonk_id WHERE u.username=? COLLATE NOCASE').bind(name).first();
+ if(!profile)return J({error:'Profile not found.'},404,o,e);
+ const player=await e.DB.prepare('SELECT id FROM players WHERE trim(name)=trim(?) COLLATE NOCASE LIMIT 1').bind(profile.username).first();
+ return J({profile,player_id:player?.id||null},200,o,e);
 }
 if(p==='/api/players'&&m==='GET'){let x=await e.DB.prepare('SELECT * FROM players ORDER BY name COLLATE NOCASE').all();return J({players:x.results},200,o,e)}
 if(p==='/api/players'&&m==='POST'){let q=await guard(r,e,o);if(q)return q;let b=await r.json();b.overall_tier=calculatedTier(b);let err=valid(b);if(err)return J({error:err},400,o,e);if(await duplicatePlayer(e,b.name.trim()))return J({error:duplicateNameError},409,o,e);let i=uuid(),t=now();await e.DB.batch([e.DB.prepare('INSERT INTO players(id,name,class_name,overall_tier,control,execution,defending,reaction_time,chemistry,game_sense,playstyle,strengths,weaknesses,assessed_at,locked,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(i,b.name.trim(),b.class_name||'',b.overall_tier,...A.map(k=>Number(b[k])),b.playstyle||'',b.strengths||'',b.weaknesses||'',b.assessed_at,0,t,t),snap(e,{...b,id:i}),audit(e,await session(r,e),'created_player',{...b,id:i,name:b.name.trim()})]);return J({ok:true,id:i},201,o,e)}
